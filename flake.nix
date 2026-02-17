@@ -27,7 +27,7 @@
         inherit system;
         specialArgs = { inherit inputs; };
         modules = [
-          ./configuration.nix
+          ./hosts/dejima/configuration.nix
           sops-nix.nixosModules.sops
           home-manager.nixosModules.home-manager
           {
