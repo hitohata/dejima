@@ -15,5 +15,6 @@
   imports = [
     ./modules/nvim/default.nix
     ./modules/bash/default.nix
+    ./modules/packages/default.nix
   ];
 }
