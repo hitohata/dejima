@@ -14,7 +14,7 @@
 
   outputs = { self, nixpkgs, nixpkgs-unstable, sops-nix, home-manager, ... }@inputs:
     let
-      system = "x86_64-linux";
+      system = "aarch64";
       username = "dejima";
       homeDirectory = "/home/dejima";
       configName = "dejima";
