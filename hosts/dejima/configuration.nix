@@ -59,14 +59,13 @@
   # Enable touchpad support (enabled default in most desktopManager).
   # services.libinput.enable = true;
 
-  # Define a user account. Don't forget to set a password with ‘passwd’.
-  # users.users.alice = {
-  #   isNormalUser = true;
-  #   extraGroups = [ "wheel" ]; # Enable ‘sudo’ for the user.
-  #   packages = with pkgs; [
-  #     tree
-  #   ];
-  # };
+  # Define a user account.
+  users.users.dejima = {
+    isNormalUser = true;
+    extraGroups = [ "wheel" "networkmanager" ];
+    group = "dejima";
+  };
+  users.groups.dejima = {};
 
   # programs.firefox.enable = true;
 
