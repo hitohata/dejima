@@ -65,6 +65,12 @@
     extraGroups = [ "wheel" "networkmanager" ];
     group = "dejima";
   };
+  users.users.nixos = {
+    isNormalUser = true;
+    extraGroups = [ "wheel" "networkmanager" ];
+    group = "dejima";
+    initialPassword = "nixos";
+  };
   users.groups.dejima = {};
 
   # programs.firefox.enable = true;
