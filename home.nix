@@ -9,14 +9,6 @@
   # Set NIX_HOME_TARGET so 'apply' command knows which config to use
   home.sessionVariables = {
     NIX_HOME_TARGET = configName;
-    SHELL = "${pkgs.bash}/bin/bash";
-  };
-
-  nix = {
-    package = pkgs.nix;
-    settings = {
-      experimental-features = [ "nix-command" "flakes" ];
-    };
   };
 
   # Module imports

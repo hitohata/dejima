@@ -16,7 +16,6 @@
     let
       system = "aarch64-linux";
       username = "dejima";
-      homeDirectory = "/home/dejima";
       configName = "dejima";
 
       pkgs-unstable = import nixpkgs-unstable {
@@ -24,16 +23,20 @@
         config.allowUnfree = true;
       };
     in {
-      homeConfigurations.${configName} = home-manager.lib.homeManagerConfiguration {
-        pkgs = nixpkgs.legacyPackages.${system};
-        extraSpecialArgs = {
-          inherit configName pkgs-unstable;
-        };
+      nixosConfigurations.${configName} = nixpkgs.lib.nixosSystem {
+        inherit system;
+        specialArgs = { inherit inputs; };
         modules = [
-          ./home.nix
+          ./configuration.nix
+          sops-nix.nixosModules.sops
+          home-manager.nixosModules.home-manager
           {
-            home.username = username;
-            home.homeDirectory = homeDirectory;
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.${username} = import ./home.nix;
+            home-manager.extraSpecialArgs = {
+              inherit configName pkgs-unstable;
+            };
           }
         ];
       };
