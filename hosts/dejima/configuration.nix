@@ -18,7 +18,7 @@
   # networking.hostName = "nixos"; # Define your hostname.
 
   # Configure network connections interactively with nmcli or nmtui.
-  networking.networkmanager.enable = true;
+  # networking.networkmanager.enable = true;
 
   # Set your time zone.
   # time.timeZone = "Europe/Amsterdam";
@@ -108,7 +108,22 @@
     '';
   };
 
-  networking.firewall.allowedTCPPorts = [ 22 ];
+  networking = {
+    hostName = "dejima";
+    usePredictableInterfaceNames = true;
+
+    nat = {
+      enable = true;
+      externalInterface = "wlan0";
+      internalInterfaces = [ "end0" ];
+    };
+
+    firewall = {
+      enable = true;
+      allowedTCPPorts = [ 80 433 22 ];
+      trustedInterfaces = [ "end0" ];
+    };
+  };
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
