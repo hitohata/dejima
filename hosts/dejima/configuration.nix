@@ -3,7 +3,12 @@
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
 
 { config, lib, pkgs, ... }:
-
+let
+  ETH = "end0";
+  WAN = "wlan0";
+  IP = "192.168.30.1"; # This PC's address
+  DHCP_RANGE = "192.168.30.2,192.168.30.150,5h"; # DHCP range
+in
 {
   imports =
     [ # Include the results of the hardware scan.
@@ -14,6 +19,7 @@
   boot.loader.grub.enable = false;
   # Enables the generation of /boot/extlinux/extlinux.conf
   boot.loader.generic-extlinux-compatible.enable = true;
+
 
   # networking.hostName = "nixos"; # Define your hostname.
 
@@ -108,20 +114,48 @@
     '';
   };
 
+  # allow IP relay
+  boot.kernel.sysctl."net.ipv4.ip_forward" = 1;
+
+  # networking
   networking = {
     hostName = "dejima";
+
+    networkmanager.enable = true;
+    # remove the internal network interface from the network manager
+    networkmanager.unmanaged = [ "${ETH}" ];
+
     usePredictableInterfaceNames = true;
 
     nat = {
       enable = true;
-      externalInterface = "wlan0";
-      internalInterfaces = [ "end0" ];
+      externalInterface = WAN;
+      internalInterfaces = [ ETH ];
+    };
+
+    # this pc
+    interfaces = {
+      "${ETH}".ipv4.addresses = [{
+        address = IP;
+        prefixLength = 24;
+      }];
     };
 
     firewall = {
       enable = true;
-      allowedTCPPorts = [ 80 433 22 ];
-      trustedInterfaces = [ "end0" ];
+      trustedInterfaces = [ ETH ];
+    };
+  };
+
+  # DHCP server
+  services.dnsmasq = {
+    enable = true;
+    settings = {
+      interface = ETH;
+      dhcp-range = DHCP_RANGE;
+      server = [ "1.1.1.1" "8.8.8.8" ];
+      domain-needed = true;
+      bogus-priv = true;
     };
   };
 
