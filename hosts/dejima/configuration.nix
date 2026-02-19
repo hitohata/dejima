@@ -161,7 +161,7 @@ in
   virtualisation.oci-containers.backend = "docker";
   virtualisation.oci-containers.containers.pihole = {
     image = "pihole/pihole:latest";
-    extraOptions = [ "--network=host" ];
+    extraOptions = [ "--network=host" "--cap-add=NET_ADMIN" "--cap-add=CAP_NET_RAW" "--cap-add=CAP_CHOWN" ];
     environment = {
       FTLCONG_webserver_api_password = "admin";
       FTLCONG_webserver_port = "80";
