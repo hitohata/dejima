@@ -161,15 +161,12 @@ in
   virtualisation.oci-containers.backend = "docker";
   virtualisation.oci-containers.containers.pihole = {
     image = "pihole/pihole:latest";
-    extraOptions = [ "--network=host" "--cap-add=NET_ADMIN" "--cap-add=CAP_NET_RAW" "--cap-add=CAP_CHOWN" ];
+    extraOptions = [ "--network=host" "--cap-add=NET_ADMIN" ];
     environment = {
       FTLCONG_webserver_api_password = "admin";
       FTLCONG_webserver_port = "80";
       FTLCONG_dns_listeningMode = "all";
-      FTLCONG_dhcp_active = "true";
-      FTLCONG_dhcp_range = DHCP_RANGE;
       FTLCONG_dhcp_router = IP;
-      FTLCONG_dhcp_upstreams = "1.1.1.1;8.8.8.8";
     };
     volumes = [
       "/var/lib/pihole/:/etc/pihole/"
