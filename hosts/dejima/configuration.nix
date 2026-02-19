@@ -20,7 +20,6 @@ in
   # Enables the generation of /boot/extlinux/extlinux.conf
   boot.loader.generic-extlinux-compatible.enable = true;
 
-
   # networking.hostName = "nixos"; # Define your hostname.
 
   # Configure network connections interactively with nmcli or nmtui.
