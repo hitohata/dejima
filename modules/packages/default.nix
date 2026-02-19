@@ -6,6 +6,7 @@
     # Core utilities
     coreutils
     curl
+    usbutils
 
     # File tools
     tree
