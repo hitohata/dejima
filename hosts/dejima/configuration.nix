@@ -7,7 +7,6 @@ let
   ETH = "end0";
   WAN = "wlan0";
   IP = "192.168.10.1"; # This PC's address
-  DHCP_RANGE = "192.168.10.2,192.168.10.150,5h"; # DHCP range
 in
 {
   imports =
