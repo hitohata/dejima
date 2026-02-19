@@ -67,7 +67,7 @@ in
   # Define a user account.
   users.users.dejima = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" ];
+    extraGroups = [ "wheel" "networkmanager" "docker" ];
     initialPassword = "init";
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPecawIGB5QnbVGj1g0My61YdryyuAVysqu2r87tND1J m3"
@@ -114,9 +114,13 @@ in
   };
 
   # allow IP relay
-  boot.kernel.sysctl."net.ipv4.ip_forward" = 1;
+  boot.kernel.sysctl = {
+    "net.ipv4.ip_forward" = 1;
+    "net.ipv6.conf.all.disable_ipv6" = 1;
+    "net.ipv6.conf.default.disable_ipv6" = 1;
+  };
 
-  # networking
+  # -- Network setting --
   networking = {
     hostName = "dejima";
 
@@ -143,20 +147,36 @@ in
     firewall = {
       enable = true;
       trustedInterfaces = [ ETH ];
+      extraCommands = ''
+        iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+      '';
     };
   };
 
-  # DHCP server
-  services.dnsmasq = {
-    enable = true;
-    settings = {
-      interface = ETH;
-      dhcp-range = DHCP_RANGE;
-      server = [ "1.1.1.1" "8.8.8.8" ];
-      domain-needed = true;
-      bogus-priv = true;
+  # -- Pi-hole --
+  services.dnsmasq.enable = false;
+
+  virtualisation.docker.enable = true;
+  
+  virtualisation.oci-containers.backend = "docker";
+  virtualisation.oci-containers.containers.pihole = {
+    image = "pihole/pihole:latest";
+    extraOptions = [ "--network=host" ];
+    environment = {
+      FTLCONG_webserver_api_password = "admin";
+      FTLCONG_webserver_port = "80";
+      FTLCONG_dns_listeningMode = "all";
+      FTLCONG_dhcp_active = "true";
+      FTLCONG_dhcp_range = DHCP_RANGE;
+      FTLCONG_dhcp_router = IP;
+      FTLCONG_dhcp_upstreams = "1.1.1.1;8.8.8.8";
     };
+    volumes = [
+      "/var/lib/pihole/:/etc/pihole/"
+      "/var/lib/dnsmasq.d/:/etc/dnsmasq.d/"
+    ];
   };
+  
 
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
