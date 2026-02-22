@@ -9,6 +9,7 @@
   # Set NIX_HOME_TARGET so 'apply' command knows which config to use
   home.sessionVariables = {
     NIX_HOME_TARGET = configName;
+    SOPS_AGE_SSH_PRIVATE_KEY_FILE = "/etc/ssh/ssh_host_ed25519_key";
   };
 
   # Module imports

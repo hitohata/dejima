@@ -12,6 +12,7 @@ in
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ./sops/default.nix
     ];
 
   # Use the extlinux boot loader. (NixOS wants to enable GRUB by default)
@@ -28,11 +29,6 @@ in
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPecawIGB5QnbVGj1g0My61YdryyuAVysqu2r87tND1J m3"
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMfs/QSBONsbnd4or8AcQobj8Rq6w6L57Sh2x63N08ii hirohatatro@gmail.com"
     ];
-  };
-  users.users.nixos = {
-    isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" ];
-    initialPassword = "nixos";
   };
 
   # Enable the OpenSSH daemon.
@@ -59,12 +55,22 @@ in
   # -- Network setting --
   networking = {
     hostName = "dejima";
-
-    networkmanager.enable = true;
-    # remove the internal network interface from the network manager
-    networkmanager.unmanaged = [ "${ETH}" ];
+    networkmanager.enable = false;
 
     usePredictableInterfaceNames = true;
+    
+    # Wifi
+    wireless = {
+      enable = true;
+
+      secretsFile = config.sops.secrets.azure_password.path;
+
+      networks = {
+        "TELUS1196" = {
+          pskRaw = "ext:azure_password"; 
+        };
+      };
+    };
 
     nat = {
       enable = true;
@@ -97,18 +103,26 @@ in
   virtualisation.oci-containers.backend = "docker";
   virtualisation.oci-containers.containers.pihole = {
     image = "pihole/pihole:latest";
-    extraOptions = [ "--network=host" "--cap-add=NET_ADMIN" ];
+    extraOptions = [
+      "--network=host"
+      "--cap-add=NET_ADMIN"
+      "--env-file=${config.sops.secrets.pihole_password.path}"
+    ];
     environment = {
-      FTLCONG_webserver_api_password = "admin";
-      FTLCONG_webserver_port = "80";
-      FTLCONG_dns_listeningMode = "all";
-      FTLCONG_dhcp_router = IP;
+      FTLCONF_webserver_port = "80";
+      FTLCONF_dns_listeningMode = "all";
+      FTLCONF_dhcp_router = IP;
     };
     volumes = [
       "/var/lib/pihole/:/etc/pihole/"
       "/var/lib/dnsmasq.d/:/etc/dnsmasq.d/"
     ];
   };
+
+  # allow access to the ssh key
+  systemd.tmpfiles.rules = [
+    "z /etc/ssh/ssh_host_ed25519_key 0640 root wheel - -"
+  ];
 
   # For more information, see `man configuration.nix` or https://nixos.org/manual/nixos/stable/options#opt-system.stateVersion .
   system.stateVersion = "25.11"; # Did you read the comment?
