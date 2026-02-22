@@ -1,0 +1,10 @@
+keys:
+  - &user age1qfduudwdxlqwku4uaqsg5mj3mf5mmwthrl4lel9wducdsprnp4ysexcce9
+  - &user age19qlha685ckt9tcvx75zysq2f8jt796g83ccwq4hm6lup7jwzmvys8pll0v
+  - &dejima age1n7lnfnctxplvceru039xx3tpt3h97mqma4sljqcvt8ep53u3nqmscwthff
+
+creation_rules:
+- path_regex: secrets/.*\.yaml$
+  age:
+    - *user
+    - *dejima
