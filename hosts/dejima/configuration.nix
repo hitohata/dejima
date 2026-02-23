@@ -27,7 +27,7 @@ in
     initialPassword = "init";
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPecawIGB5QnbVGj1g0My61YdryyuAVysqu2r87tND1J m3"
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMfs/QSBONsbnd4or8AcQobj8Rq6w6L57Sh2x63N08ii hirohatatro@gmail.com"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMIrxRnkBpffDfzvAiNkkpRA3jIMfEiZQmAJW9WoCjwV node"
     ];
   };
 
