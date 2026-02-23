@@ -119,6 +119,19 @@ in
     ];
   };
 
+  # Avahi
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+    publish = {
+      enable = true;
+      addresses = true;
+      domain = true;
+      hinfo = true;
+      userServices = true;
+    };
+  };
+
   # allow access to the ssh key
   systemd.tmpfiles.rules = [
     "z /etc/ssh/ssh_host_ed25519_key 0640 root wheel - -"
