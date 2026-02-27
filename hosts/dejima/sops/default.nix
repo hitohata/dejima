@@ -16,5 +16,8 @@
     azure_password = {
       mode = "0400";
     };
+    tailscale_key = {
+      mode = "0400";
+    };
   };
 }
