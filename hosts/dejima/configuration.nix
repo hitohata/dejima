@@ -49,8 +49,7 @@ in
   # allow IP relay
   boot.kernel.sysctl = {
     "net.ipv4.ip_forward" = 1;
-    "net.ipv6.conf.all.disable_ipv6" = 1;
-    "net.ipv6.conf.default.disable_ipv6" = 1;
+    "net.ipv6.conf.all.forwarding" = 1;
   };
 
   # -- Network setting --
@@ -89,14 +88,32 @@ in
 
     firewall = {
       enable = true;
-      trustedInterfaces = [ ETH ];
+      trustedInterfaces = [ ETH "tailscale0" ];
+      # allow the Tailscale UDP port through the firewall
+      allowedUDPPorts = [ config.services.tailscale.port ];
+        # let you SSH in over the public internet
+      # allowedTCPPorts = [ ];
+      # for pi-hole
       extraCommands = ''
-        iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+        iptables -A INPUT -i ${ETH} -j ACCEPT
+
+        # eth0 -> wlan0
+        iptables -t nat -A POSTROUTING -o ${WAN} -j MASQUERADE
+
+        # accept forwarding
+        iptables -A FORWARD -i ${ETH} -o ${WAN} -j ACCEPT
+        iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+        iptables -D FORWARD 1
+        iptables -I FORWARD 1 -i tailscale0 -j ts-forward
+
+        iptables -t mangle -A FORWARD -o tailscale0 -p tcp -m tcp \
+          --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
       '';
     };
   };
 
-  # -- Pi-hole --
+  # -- pi-hole --
   services.dnsmasq.enable = false;
 
   virtualisation.docker.enable = true;
@@ -106,18 +123,56 @@ in
     image = "pihole/pihole:latest";
     extraOptions = [
       "--network=host"
-      "--cap-add=NET_ADMIN"
+      "--cap-add=net_admin"
       "--env-file=${config.sops.secrets.pihole_password.path}"
     ];
     environment = {
-      FTLCONF_webserver_port = "80";
-      FTLCONF_dns_listeningMode = "all";
-      FTLCONF_dhcp_router = IP;
+      ftlconf_webserver_port = "80";
+      ftlconf_dns_listeningmode = "all";
+      ftlconf_dhcp_router = IP;
     };
     volumes = [
       "/var/lib/pihole/:/etc/pihole/"
       "/var/lib/dnsmasq.d/:/etc/dnsmasq.d/"
     ];
+  };
+
+  # -- tailscal --
+  services.tailscale = {
+    enable = true;
+  };
+  environment.systemPackages = [ pkgs.tailscale ];
+
+  # create a oneshot job to authenticate to Tailscale
+  systemd.services.tailscale-autoconnect = {
+    description = "Automatic connection to Tailscale";
+
+    # make sure tailscale is running before trying to connect to tailscale
+    after = [ "network-pre.target" "tailscale.service" ];
+    wants = [ "network-pre.target" "tailscale.service" ];
+    wantedBy = [ "multi-user.target" ];
+
+    # set this service as a oneshot job
+    serviceConfig.Type = "oneshot";
+
+    # have the job run this shell script
+    script = with pkgs; ''
+      AUTH_KEY=$(cat ${config.sops.secrets.tailscale_key.path})
+
+      # wait for tailscaled to settle
+      sleep 2
+
+      # check if we are already authenticated to tailscale
+      status="$(${pkgs.tailscale}/bin/tailscale status -json | ${pkgs.jq}/bin/jq -r .BackendState)"
+      if [ $status = "Running" ]; then # if so, then do nothing
+        exit 0
+      fi
+
+      # otherwise authenticate with tailscale
+      ${pkgs.tailscale}/bin/tailscale up \
+        --authkey "$AUTH_KEY" \
+        --advertise-routes=192.168.10.0/24
+    '';
   };
 
   # Avahi
@@ -136,6 +191,7 @@ in
   # allow access to the ssh key
   systemd.tmpfiles.rules = [
     "z /etc/ssh/ssh_host_ed25519_key 0640 root wheel - -"
+    "w /var/lib/dnsmasq.d/99-nixos-ignore-wlan.conf - - - - no-dhcp-interface=${WAN}"
   ];
 
   # For more information, see `man configuration.nix` or https://nixos.org/manual/nixos/stable/options#opt-system.stateVersion .
