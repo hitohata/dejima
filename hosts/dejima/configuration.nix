@@ -92,10 +92,23 @@ in
       # allow the Tailscale UDP port through the firewall
       allowedUDPPorts = [ config.services.tailscale.port ];
         # let you SSH in over the public internet
-      allowedTCPPorts = [ 22 ];
+      # allowedTCPPorts = [ ];
       # for pi-hole
       extraCommands = ''
-        iptables -t mangle -a forward -p tcp --tcp-flags syn,rst syn -j tcpmss --clamp-mss-to-pmtu
+        iptables -A INPUT -i ${ETH} -j ACCEPT
+
+        # eth0 -> wlan0
+        iptables -t nat -A POSTROUTING -o ${WAN} -j MASQUERADE
+
+        # accept forwarding
+        iptables -A FORWARD -i ${ETH} -o ${WAN} -j ACCEPT
+        iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+        iptables -D FORWARD 1
+        iptables -I FORWARD 1 -i tailscale0 -j ts-forward
+
+        iptables -t mangle -A FORWARD -o tailscale0 -p tcp -m tcp \
+          --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
       '';
     };
   };
@@ -150,13 +163,15 @@ in
       sleep 2
 
       # check if we are already authenticated to tailscale
-      status="$(${tailscale}/bin/tailscale status -json | ${jq}/bin/jq -r .BackendState)"
+      status="$(${pkgs.tailscale}/bin/tailscale status -json | ${pkgs.jq}/bin/jq -r .BackendState)"
       if [ $status = "Running" ]; then # if so, then do nothing
         exit 0
       fi
 
       # otherwise authenticate with tailscale
-      ${tailscale}/bin/tailscale up -authkey "$AUTH_KEY"
+      ${pkgs.tailscale}/bin/tailscale up \
+        --authkey "$AUTH_KEY" \
+        --advertise-routes=192.168.10.0/24
     '';
   };
 
@@ -176,6 +191,7 @@ in
   # allow access to the ssh key
   systemd.tmpfiles.rules = [
     "z /etc/ssh/ssh_host_ed25519_key 0640 root wheel - -"
+    "w /var/lib/dnsmasq.d/99-nixos-ignore-wlan.conf - - - - no-dhcp-interface=${WAN}"
   ];
 
   # For more information, see `man configuration.nix` or https://nixos.org/manual/nixos/stable/options#opt-system.stateVersion .
