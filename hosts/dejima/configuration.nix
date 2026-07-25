@@ -2,7 +2,7 @@
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, domainNames, ... }:
 let
   ETH = "end0";
   WAN = "wlan0";
@@ -13,6 +13,7 @@ in
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./sops/default.nix
+      ./services/proxy.nix
     ];
 
   # Use the extlinux boot loader. (NixOS wants to enable GRUB by default)
@@ -29,6 +30,7 @@ in
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPecawIGB5QnbVGj1g0My61YdryyuAVysqu2r87tND1J m3"
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMIrxRnkBpffDfzvAiNkkpRA3jIMfEiZQmAJW9WoCjwV node"
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHnWdJHymT9hNTFWMPTqMS9yI/c/xhDS0K8DBoAlItRM n100"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINEzr66JjoWf5GhDxiaPWx7wz113IgZFQTIt9jtllRvW x1"
     ];
   };
 
@@ -69,6 +71,10 @@ in
         "TELUS1196" = {
           pskRaw = "ext:azure_password"; 
         };
+        "RikiWifi" = {
+          # pskRaw = "ext:willing_password"; 
+          psk = "konnichiha"; 
+        };
       };
     };
 
@@ -89,10 +95,9 @@ in
     firewall = {
       enable = true;
       trustedInterfaces = [ ETH "tailscale0" ];
-      # allow the Tailscale UDP port through the firewall
-      allowedUDPPorts = [ config.services.tailscale.port ];
+      allowedUDPPorts = [ 53 67 68 config.services.tailscale.port ];
+      allowedTCPPorts = [ 80 443 3000 ];
         # let you SSH in over the public internet
-      # allowedTCPPorts = [ ];
       # for pi-hole
       extraCommands = ''
         iptables -A INPUT -i ${ETH} -j ACCEPT
@@ -109,33 +114,47 @@ in
 
         iptables -t mangle -A FORWARD -o tailscale0 -p tcp -m tcp \
           --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+        iptables -t mangle -A FORWARD -o ${WAN} -p tcp \
+          --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
       '';
     };
   };
 
-  # -- pi-hole --
-  services.dnsmasq.enable = false;
+  # -- AdGuard Home --
+  services.adguardhome = {
+    enable = true;
+    port = 3000;
 
-  virtualisation.docker.enable = true;
-  
-  virtualisation.oci-containers.backend = "docker";
-  virtualisation.oci-containers.containers.pihole = {
-    image = "pihole/pihole:latest";
-    extraOptions = [
-      "--network=host"
-      "--cap-add=net_admin"
-      "--env-file=${config.sops.secrets.pihole_password.path}"
-    ];
-    environment = {
-      ftlconf_webserver_port = "80";
-      ftlconf_dns_listeningmode = "all";
-      ftlconf_dhcp_router = IP;
+    settings = {
+      http = {
+        address = "0.0.0.0:3000";
+      };
+      dns = {
+        bind_hosts = [ "0.0.0.0" ];
+        upstream_dns = [
+          "1.1.1.1"
+          "8.8.8.8"
+        ];
+        allowed_clients = [
+          "127.0.0.1"
+          "192.168.10.0/24"
+          "100.64.0.0/10" # tailscal
+        ];
+      };
+      filtering = {
+        rewrites = [
+          { domain = "${domainNames.adguard}"; answer = IP; }
+          { domain = "${domainNames.immich}"; answer = IP; }
+          { domain = "${domainNames.nextcloud}"; answer = IP; }
+          { domain = "${domainNames.piNas}"; answer = IP; }
+          { domain = "${domainNames.homepage}"; answer = IP; }
+          { domain = "${domainNames.homeassistant}"; answer = IP; }
+        ];
+      };
     };
-    volumes = [
-      "/var/lib/pihole/:/etc/pihole/"
-      "/var/lib/dnsmasq.d/:/etc/dnsmasq.d/"
-    ];
   };
+
+  systemd.services.adguardhome.serviceConfig.AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" "CAP_NET_RAW" ];
 
   # -- tailscal --
   services.tailscale = {

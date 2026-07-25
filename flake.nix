@@ -18,6 +18,15 @@
       username = "dejima";
       configName = "dejima";
 
+      domainNames = {
+        immich = "immich.sv";
+        adguard = "dns.sv";
+        nextcloud = "nextcloud.sv";
+        piNas = "pi-nas.sv";
+        homepage = "homepage.sv";
+        homeassistant = "homeassistant.sv";
+      };
+
       pkgs-unstable = import nixpkgs-unstable {
         inherit system;
         config.allowUnfree = true;
@@ -25,7 +34,7 @@
     in {
       nixosConfigurations.${configName} = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit inputs; };
+        specialArgs = { inherit inputs domainNames; };
         modules = [
           ./hosts/dejima/configuration.nix
           sops-nix.nixosModules.sops
