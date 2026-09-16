@@ -1,24 +1,40 @@
 # Edit this configuration file to define what should be installed on
-# your system. Help is available in the configuration.nix(5) man page, on
-# https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
+# your system.  Help is available in the configuration.nix(5) man page
+# and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, lib, pkgs, ... }:
-let
-  ETH = "end0";
-  WAN = "wlan0";
-  IP = "192.168.10.1"; # This PC's address
-in
+{ config, pkgs, ... }:
+
 {
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      ./sops/default.nix
     ];
 
-  # Use the extlinux boot loader. (NixOS wants to enable GRUB by default)
-  boot.loader.grub.enable = false;
-  # Enables the generation of /boot/extlinux/extlinux.conf
-  boot.loader.generic-extlinux-compatible.enable = true;
+  # Bootloader.
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+
+  networking.hostName = "nixos"; # Define your hostname.
+  # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
+
+  # Configure network proxy if necessary
+  # networking.proxy.default = "http://user:password@proxy:port/";
+  # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
+
+  # Enable networking
+  networking.networkmanager.enable = true;
+
+  # Set your time zone.
+  time.timeZone = "America/Vancouver";
+
+  # Select internationalisation properties.
+  i18n.defaultLocale = "en_CA.UTF-8";
+
+  # Configure keymap in X11
+  services.xserver.xkb = {
+    layout = "us";
+    variant = "";
+  };
 
   # Define a user account.
   users.users.dejima = {
@@ -32,171 +48,47 @@ in
     ];
   };
 
-  # Enable the OpenSSH daemon.
-  services.openssh= {
-    enable = true;
-    settings = {
-        PasswordAuthentication = false;
-        KbdInteractiveAuthentication = false;
-        PermitRootLogin = "prohibit-password";
-    };
-    extraConfig = ''
-      ClientAliveInterval 30
-      ClientAliveCountMax 3
-    '';
-  };
+  # Allow unfree packages
+  nixpkgs.config.allowUnfree = true;
 
-  # allow IP relay
-  boot.kernel.sysctl = {
-    "net.ipv4.ip_forward" = 1;
-    "net.ipv6.conf.all.forwarding" = 1;
-  };
-
-  # -- Network setting --
-  networking = {
-    hostName = "dejima";
-    networkmanager.enable = false;
-
-    usePredictableInterfaceNames = true;
-    
-    # Wifi
-    wireless = {
-      enable = true;
-
-      secretsFile = config.sops.secrets.azure_password.path;
-
-      networks = {
-        "TELUS1196" = {
-          pskRaw = "ext:azure_password"; 
-        };
-      };
-    };
-
-    nat = {
-      enable = true;
-      externalInterface = WAN;
-      internalInterfaces = [ ETH ];
-    };
-
-    # this pc
-    interfaces = {
-      "${ETH}".ipv4.addresses = [{
-        address = IP;
-        prefixLength = 24;
-      }];
-    };
-
-    firewall = {
-      enable = true;
-      trustedInterfaces = [ ETH "tailscale0" ];
-      # allow the Tailscale UDP port through the firewall
-      allowedUDPPorts = [ config.services.tailscale.port ];
-        # let you SSH in over the public internet
-      # allowedTCPPorts = [ ];
-      # for pi-hole
-      extraCommands = ''
-        iptables -A INPUT -i ${ETH} -j ACCEPT
-
-        # eth0 -> wlan0
-        iptables -t nat -A POSTROUTING -o ${WAN} -j MASQUERADE
-
-        # accept forwarding
-        iptables -A FORWARD -i ${ETH} -o ${WAN} -j ACCEPT
-        iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-
-        iptables -D FORWARD 1
-        iptables -I FORWARD 1 -i tailscale0 -j ts-forward
-
-        iptables -t mangle -A FORWARD -o tailscale0 -p tcp -m tcp \
-          --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
-      '';
-    };
-  };
-
-  # -- pi-hole --
-  services.dnsmasq.enable = false;
-
-  virtualisation.docker.enable = true;
-  
-  virtualisation.oci-containers.backend = "docker";
-  virtualisation.oci-containers.containers.pihole = {
-    image = "pihole/pihole:latest";
-    extraOptions = [
-      "--network=host"
-      "--cap-add=net_admin"
-      "--env-file=${config.sops.secrets.pihole_password.path}"
-    ];
-    environment = {
-      ftlconf_webserver_port = "80";
-      ftlconf_dns_listeningmode = "all";
-      ftlconf_dhcp_router = IP;
-    };
-    volumes = [
-      "/var/lib/pihole/:/etc/pihole/"
-      "/var/lib/dnsmasq.d/:/etc/dnsmasq.d/"
-    ];
-  };
-
-  # -- tailscal --
-  services.tailscale = {
-    enable = true;
-  };
-  environment.systemPackages = [ pkgs.tailscale ];
-
-  # create a oneshot job to authenticate to Tailscale
-  systemd.services.tailscale-autoconnect = {
-    description = "Automatic connection to Tailscale";
-
-    # make sure tailscale is running before trying to connect to tailscale
-    after = [ "network-pre.target" "tailscale.service" ];
-    wants = [ "network-pre.target" "tailscale.service" ];
-    wantedBy = [ "multi-user.target" ];
-
-    # set this service as a oneshot job
-    serviceConfig.Type = "oneshot";
-
-    # have the job run this shell script
-    script = with pkgs; ''
-      AUTH_KEY=$(cat ${config.sops.secrets.tailscale_key.path})
-
-      # wait for tailscaled to settle
-      sleep 2
-
-      # check if we are already authenticated to tailscale
-      status="$(${pkgs.tailscale}/bin/tailscale status -json | ${pkgs.jq}/bin/jq -r .BackendState)"
-      if [ $status = "Running" ]; then # if so, then do nothing
-        exit 0
-      fi
-
-      # otherwise authenticate with tailscale
-      ${pkgs.tailscale}/bin/tailscale up \
-        --authkey "$AUTH_KEY" \
-        --advertise-routes=192.168.10.0/24
-    '';
-  };
-
-  # Avahi
-  services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    publish = {
-      enable = true;
-      addresses = true;
-      domain = true;
-      hinfo = true;
-      userServices = true;
-    };
-  };
-
-  # allow access to the ssh key
-  systemd.tmpfiles.rules = [
-    "z /etc/ssh/ssh_host_ed25519_key 0640 root wheel - -"
-    "w /var/lib/dnsmasq.d/99-nixos-ignore-wlan.conf - - - - no-dhcp-interface=${WAN}"
+  # List packages installed in system profile. To search, run:
+  # $ nix search wget
+  environment.systemPackages = with pkgs; [
+  #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
+  #  wget
   ];
 
-  # For more information, see `man configuration.nix` or https://nixos.org/manual/nixos/stable/options#opt-system.stateVersion .
-  system.stateVersion = "25.11"; # Did you read the comment?
+  # Some programs need SUID wrappers, can be configured further or are
+  # started in user sessions.
+  # programs.mtr.enable = true;
+  # programs.gnupg.agent = {
+  #   enable = true;
+  #   enableSSHSupport = true;
+  # };
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  # List services that you want to enable:
+
+  # Enable the OpenSSH daemon.
+  services.openssh = {
+    enable = true;
+    settings = {
+      PasswordAuthentication = true;
+      PermitRootLogin = "yes";
+    };
+  };
+
+  # Open ports in the firewall.
+  # networking.firewall.allowedTCPPorts = [ ... ];
+  # networking.firewall.allowedUDPPorts = [ ... ];
+  # Or disable the firewall altogether.
+  # networking.firewall.enable = false;
+
+  # This value determines the NixOS release from which the default
+  # settings for stateful data, like file locations and database versions
+  # on your system were taken. It‘s perfectly fine and recommended to leave
+  # this value at the release version of the first install of this system.
+  # Before changing this value read the documentation for this option
+  # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
+  system.stateVersion = "26.05"; # Did you read the comment?
+
 }
-
