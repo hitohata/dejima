@@ -8,6 +8,14 @@ let
       proxyPass = "http://traefik";
       proxyWebsockets = true;
       extraConfig = ''
+        # Preserve the browser-facing HTTPS request through Traefik to the
+        # application.  Authentik uses this to build secure callback URLs.
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
         proxy_request_buffering off;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
@@ -22,6 +30,20 @@ let
       proxyPass = "http://192.168.50.2:8123";
       proxyWebsockets = true;
       extraConfig = ''
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+      '';
+    };
+  };
+
+  immichProxy = {
+    forceSSL = true;
+    useACMEHost = "dejima.men";
+    locations."/" = {
+      proxyPass = "http://192.168.10.10:2283";
+      proxyWebsockets = true;
+      extraConfig = ''
+        proxy_request_buffering off;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
       '';
@@ -90,6 +112,9 @@ in
       # Home Assistant is a direct IoT-network service, not a Kubernetes one.
       "homeassistant.dejima.men" = homeAssistantProxy;
 
+      # Immich currently listens directly on the first Kubernetes node.
+      "immich.dejima.men" = immichProxy;
+
       # Keep the former HTTP-only LAN name usable while moving clients to the
       # certificate-covered dejima.men name.  Do not serve HTTPS for .sv.
       "homeassistant.sv" = {
@@ -98,6 +123,14 @@ in
           port = 80;
         }];
         locations."/".return = "301 https://homeassistant.dejima.men$request_uri";
+      };
+
+      "immich.sv" = {
+        listen = [{
+          addr = "0.0.0.0";
+          port = 80;
+        }];
+        locations."/".return = "301 https://immich.dejima.men$request_uri";
       };
     };
   };
