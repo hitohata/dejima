@@ -89,6 +89,9 @@
       };
 
       extraForwardRules = ''
+        # Dockerized services may reach the Internet through the host WAN.
+        iifname "docker0" oifname "enp2s0" accept
+
         # Trusted LAN may initiate connections to IoT; IoT may not initiate
         # connections to the trusted LAN. Return traffic is statefully allowed.
         iifname "enp3s0" oifname "enp4s0" accept
