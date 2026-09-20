@@ -1,4 +1,18 @@
-{ pkgs, ... }: with pkgs.vimPlugins; [
+{ pkgs, ... }:
+
+let
+  # The upstream v2.0.4 tag moved after nixpkgs recorded its source hash.
+  # Pin the tag's current commit so new installations remain reproducible.
+  copilot-lua-pinned = pkgs.vimPlugins.copilot-lua.overrideAttrs (_: {
+    src = pkgs.fetchFromGitHub {
+      owner = "zbirenbaum";
+      repo = "copilot.lua";
+      rev = "b1482409cefe8b201f89122c682189fabf0436da";
+      hash = "sha256-05f76OeWBlFmlUh90tH4XMMKfNI1jnhuIJDqYPPQokA=";
+    };
+  });
+in
+with pkgs.vimPlugins; [
   cmp-nvim-lsp
   cmp-buffer
   cmp-path
@@ -7,7 +21,7 @@
 
   # GitHub Copilot
   {
-    plugin = copilot-lua;
+    plugin = copilot-lua-pinned;
     type = "lua";
     config = ''
       require("copilot").setup {
