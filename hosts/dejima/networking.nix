@@ -14,7 +14,15 @@
       authoritative = true;
       valid-lifetime = 86400;
 
-      interfaces-config.interfaces = [ "enp3s0" "enp4s0" ];
+      interfaces-config = {
+        interfaces = [ "enp3s0" "enp4s0" ];
+        # A port may have no carrier while the gateway or switch boots.
+        # Keep serving available ports while retrying unavailable ones for an
+        # hour. If a port is connected later, restart this service once.
+        service-sockets-require-all = false;
+        service-sockets-max-retries = 360;
+        service-sockets-retry-wait-time = 10000;
+      };
 
       lease-database = {
         type = "memfile";

@@ -30,6 +30,9 @@ Native NixOS Kea DHCP serves the trusted LAN and leases
   LANs.
   Do not activate it on the production LAN while the old AdGuard DHCP server is
   reachable.
+- Kea retries unavailable Ethernet ports for one hour after startup. If an
+  `enp3s0` or `enp4s0` cable is connected after that window, run
+  `sudo systemctl restart kea-dhcp4-server` once to open its DHCP socket.
 - A failed Nix build does not activate any network changes.
 
 ## Secrets required before activation
