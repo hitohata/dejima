@@ -8,13 +8,8 @@ let
       proxyPass = "http://traefik";
       proxyWebsockets = true;
       extraConfig = ''
-        # Preserve the browser-facing HTTPS request through Traefik to the
-        # application.  Authentik uses this to build secure callback URLs.
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port 443;
+        # recommendedProxySettings preserves Host, X-Forwarded-For, and the
+        # browser-facing HTTPS scheme for applications behind Traefik.
         proxy_request_buffering off;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
