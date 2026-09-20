@@ -10,7 +10,6 @@ let
       extraConfig = ''
         # Preserve the browser-facing HTTPS request through Traefik to the
         # application.  Authentik uses this to build secure callback URLs.
-        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
