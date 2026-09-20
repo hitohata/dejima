@@ -17,11 +17,11 @@
       environmentFiles = [ config.sops.templates."tailscale.env".path ];
       environment = {
         TS_AUTH_ONCE = "true";
-        TS_EXTRA_ARGS = "--accept-dns=false";
+        # These are `tailscale up` options, not `tailscaled` daemon options.
+        TS_EXTRA_ARGS = "--accept-dns=false --netfilter-mode=off";
         TS_HOSTNAME = "dejima-new";
         TS_ROUTES = "192.168.10.1/32";
         TS_STATE_DIR = "/var/lib/tailscale";
-        TS_TAILSCALED_EXTRA_ARGS = "--netfilter-mode=off";
         TS_USERSPACE = "false";
       };
       volumes = [
