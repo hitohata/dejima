@@ -18,15 +18,17 @@ let
 in
 {
   programs.neovim = {
-    enable = true;    
+    enable = true;
     defaultEditor = true;
-    
+    withPython3 = true;
+    withRuby = true;
+
     plugins = corePlugins
       ++ uiPlugins
       ++ completionPlugins
       ++ languagePlugins;
 
-    extraLuaConfig = luaConfig;
+    initLua = luaConfig;
 
     extraPackages = nixPackages
       ++ rustPackages

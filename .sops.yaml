@@ -1,10 +1,15 @@
 keys:
-  - &user age1qfduudwdxlqwku4uaqsg5mj3mf5mmwthrl4lel9wducdsprnp4ysexcce9
-  - &user age19qlha685ckt9tcvx75zysq2f8jt796g83ccwq4hm6lup7jwzmvys8pll0v
-  - &dejima age1n7lnfnctxplvceru039xx3tpt3h97mqma4sljqcvt8ep53u3nqmscwthff
+  - &user_primary age1qfduudwdxlqwku4uaqsg5mj3mf5mmwthrl4lel9wducdsprnp4ysexcce9
+  - &user_current age19qlha685ckt9tcvx75zysq2f8jt796g83ccwq4hm6lup7jwzmvys8pll0v
+  - &dejima_old age1n7lnfnctxplvceru039xx3tpt3h97mqma4sljqcvt8ep53u3nqmscwthff
+  - &x1 age1cfp6wde8qshmr7qs3vchu3q4aumlyc86fqv8xrxu5aumqydwteasfqfnhd
+  - &dejima_new age16cugczc8qwt6wuz9ckmspjyw0mkx47ne0v8aqa5hmsu8d4pyfajszaw4dz
 
 creation_rules:
 - path_regex: secrets/.*\.yaml$
   age:
-    - *user
-    - *dejima
+    - *user_primary
+    - *user_current
+    - *dejima_old
+    - *x1
+    - *dejima_new
