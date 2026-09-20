@@ -6,6 +6,19 @@
     "net.ipv6.conf.all.forwarding" = 0;
   };
 
+  # Gateway addresses must exist even when no client or switch is connected.
+  # Host services such as AdGuard bind to these addresses during boot.
+  systemd.network.networks = {
+    "40-enp3s0".networkConfig = {
+      ConfigureWithoutCarrier = true;
+      IgnoreCarrierLoss = true;
+    };
+    "40-enp4s0".networkConfig = {
+      ConfigureWithoutCarrier = true;
+      IgnoreCarrierLoss = true;
+    };
+  };
+
   networking = {
     useNetworkd = true;
     useDHCP = false;
