@@ -14,6 +14,19 @@ let
       '';
     };
   };
+
+  homeAssistantProxy = {
+    forceSSL = true;
+    useACMEHost = "dejima.men";
+    locations."/" = {
+      proxyPass = "http://192.168.50.2:8123";
+      proxyWebsockets = true;
+      extraConfig = ''
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+      '';
+    };
+  };
 in
 {
   security.acme = {
@@ -73,6 +86,19 @@ in
       "paperless.dejima.men" = traefikProxy;
       "stirling-pdf.dejima.men" = traefikProxy;
       "netdata.dejima.men" = traefikProxy;
+
+      # Home Assistant is a direct IoT-network service, not a Kubernetes one.
+      "homeassistant.dejima.men" = homeAssistantProxy;
+
+      # Keep the former HTTP-only LAN name usable while moving clients to the
+      # certificate-covered dejima.men name.  Do not serve HTTPS for .sv.
+      "homeassistant.sv" = {
+        listen = [{
+          addr = "0.0.0.0";
+          port = 80;
+        }];
+        locations."/".return = "301 https://homeassistant.dejima.men$request_uri";
+      };
     };
   };
 }
