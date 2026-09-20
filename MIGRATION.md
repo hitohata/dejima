@@ -16,7 +16,7 @@ Native NixOS Kea DHCP serves the trusted LAN and leases
 `192.168.10.150` through `192.168.10.250`. It supplies gateway and DNS
 `192.168.10.1`. Static infrastructure addresses such as `.10`, `.11`, and
 `.100` remain outside the pool. Kea also serves the IoT network from
-`192.168.50.150` through `192.168.50.250`, with gateway and DNS
+`192.168.50.10` through `192.168.50.254`, with gateway and DNS
 `192.168.50.1`.
 
 ## Safety rules
@@ -316,7 +316,7 @@ curl --resolve dns.dejima.men:443:192.168.10.1 \
 5. Build the native NixOS Kea DHCP configuration. Its dynamic pool is
    `192.168.10.150` through `192.168.10.250`; confirm that the old AdGuard DHCP
    server has no active leases in this range before continuing. The separate
-   IoT pool is `192.168.50.150` through `192.168.50.250`.
+   IoT pool is `192.168.50.10` through `192.168.50.254`.
 6. Back up the final old AdGuard state and confirm the migrated container has
    the required rewrites, filters, allowed clients, and administrator account.
 7. Withdraw the old Tailscale subnet route and approve the new `/32` route.
