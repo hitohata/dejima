@@ -101,14 +101,15 @@ the new container, copy it to:
 /var/lib/adguardhome/conf/AdGuardHome.yaml
 ```
 
-On the new gateway, create the state directories and copy the backup while the
-old gateway is reachable at `192.168.20.1`:
+On the new gateway, create the state directories and copy the backup. Use the
+old gateway's current address (`192.168.10.1` before the temporary WAN is
+added, or `192.168.20.1` afterward):
 
 ```bash
 sudo install -d -m 0750 /var/lib/adguardhome
 sudo install -d -m 0750 /var/lib/adguardhome/conf
 sudo install -d -m 0750 /var/lib/adguardhome/work
-scp dejima@192.168.20.1:AdGuardHome.yaml.backup /tmp/AdGuardHome.yaml
+scp dejima@192.168.10.1:AdGuardHome.yaml.backup /tmp/AdGuardHome.yaml
 sudo install -m 0600 /tmp/AdGuardHome.yaml \
   /var/lib/adguardhome/conf/AdGuardHome.yaml
 sudoedit /var/lib/adguardhome/conf/AdGuardHome.yaml
@@ -124,40 +125,72 @@ dhcp:
 ```
 
 Do not start the container with the copied `dhcp.enabled: true` and obsolete
-`end0` interface. After AdGuard starts, add `192.168.50.0/24` to allowed DNS
-clients through its UI and replace the old `.sv` service rewrites with:
+`end0` interface. Add the IoT network to the existing DNS-client allowlist:
+
+```yaml
+dns:
+  ratelimit: 100
+  ratelimit_subnet_len_ipv4: 32
+  ratelimit_subnet_len_ipv6: 128
+  allowed_clients:
+    - 127.0.0.1
+    - 192.168.10.0/24
+    - 192.168.50.0/24
+    - 100.64.0.0/10
+```
+
+Add the new wildcard rewrite:
 
 | Name | Answer |
 | --- | --- |
 | `*.dejima.men` | `192.168.10.1` |
 
-Retain the existing `*.n100.lan` rewrite to `192.168.10.10` for direct LAN
-access to services that intentionally provide a LAN alias.
+Retain the existing `.sv`, `*.n100.lan`, and `*.n100.local` rewrites during
+migration. `*.n100.lan` continues to resolve directly to `192.168.10.10`.
 
-The existing configuration has no AdGuard UI users (`users: []`). Immediately
-after the first container start, reach the loopback-bound UI through an SSH
-tunnel and create an administrator account before treating the proxied UI as
-ready:
+The existing `users: []` setting disables authentication; it does not launch an
+account-creation wizard. Before starting the container, generate a bcrypt hash:
 
 ```bash
-ssh -L 3000:127.0.0.1:3000 dejima@192.168.10.1
+nix --extra-experimental-features 'nix-command flakes' \
+  shell nixpkgs#apacheHttpd \
+  -c htpasswd -nB -C 10 admin
 ```
 
-Then open `http://127.0.0.1:3000` locally. Do not leave the administration UI
-without authentication.
+Place only the hash after `admin:` in the persistent configuration:
+
+```yaml
+users:
+  - name: admin
+    password: "$2y$10$..."
+```
+
+Use the original plaintext password to log in; never enter the hash as the
+password. The container binds its UI to host loopback, and Nginx exposes the
+authenticated UI as `https://dns.dejima.men` on trusted interfaces.
 
 ## Verify the temporary WAN
 
-The old gateway must first be using Wi-Fi for Internet access and
-`192.168.20.1/24` on the Ethernet link to the new gateway. Connect that Ethernet
-link only to new gateway `enp2s0`. After booting the staged configuration, run
-on the new gateway:
+The old gateway uses Wi-Fi for Internet access. For testing without taking the
+production LAN offline, keep its existing `192.168.10.1/24` address and add a
+temporary secondary address on the old gateway:
+
+```bash
+sudo ip address add 192.168.20.1/24 dev end0
+```
+
+This command is intentionally temporary and must be repeated if the old
+gateway reboots. Keep new gateway `enp3s0` disconnected from the production
+switch. New gateway `enp2s0` may remain attached to the same temporary Layer 2
+network during testing; it uses only `192.168.20.2/24`.
+
+After booting the staged configuration, run on the new gateway:
 
 ```bash
 ip -brief address show enp2s0
 ip route
 ping -c 3 192.168.20.1
-curl --fail --head https://github.com/
+curl --noproxy '*' --fail --head https://github.com/
 ```
 
 The expected new-gateway state is:
@@ -182,6 +215,20 @@ AdGuard should own TCP and UDP port 53 only on `192.168.10.1` and
 `192.168.50.1`. Its administration port should listen only on
 `127.0.0.1:3000`.
 
+If the containers attempted to start before the temporary WAN was available,
+restart them after Internet access works:
+
+```bash
+sudo systemctl restart docker-adguardhome.service docker-tailscale.service
+```
+
+Retry ACME issuance if it also ran before the WAN was available:
+
+```bash
+sudo systemctl restart acme-dejima.men.service
+sudo systemctl reload nginx
+```
+
 ## Test the trusted LAN in isolation
 
 Connect one test computer directly to `enp3s0`; do not connect the production
@@ -199,13 +246,29 @@ From that computer, test the gateway, SSH, DNS, and routed Internet access:
 ping -c 3 192.168.10.1
 ssh dejima@192.168.10.1
 dig @192.168.10.1 dns.dejima.men
-curl --fail --head https://github.com/
+curl --noproxy '*' --fail --head https://github.com/
 ```
 
-Use the SSH tunnel documented above to finish the AdGuard setup. Confirm that
-the `*.dejima.men` rewrite returns `192.168.10.1` before testing Nginx. A 502
-response from an individual service is expected if Kubernetes Traefik or that
-service is unavailable; it still proves DNS, TLS, and Nginx were reached.
+Confirm that the `*.dejima.men` rewrite returns `192.168.10.1`, then open
+`https://dns.dejima.men` and log in as `admin` with the plaintext password used
+to generate the bcrypt hash. A 502 response from an individual Kubernetes
+service is expected before the production LAN is attached; it still proves
+DNS, TLS, and Nginx were reached.
+
+On a macOS test client, disable Wi-Fi to avoid two simultaneous routes to
+`192.168.10.0/24`. If the wired service is named `USB 10/100 LAN`, configure its
+DNS explicitly with:
+
+```bash
+sudo networksetup -setdnsservers "USB 10/100 LAN" 192.168.10.1
+```
+
+After testing, restore that service and disconnect it from `enp3s0`:
+
+```bash
+sudo networksetup -setdhcp "USB 10/100 LAN"
+sudo networksetup -setdnsservers "USB 10/100 LAN" Empty
+```
 
 Stop here. The isolated tests do not make the gateway ready for production
 clients because DHCP remains intentionally unconfigured.
@@ -240,19 +303,22 @@ curl --resolve dns.dejima.men:443:192.168.10.1 \
 ## Cutover and rollback
 
 1. Keep new `enp3s0` physically disconnected.
-2. Change the old gateway Ethernet to `192.168.20.1/24` while retaining Wi-Fi
-   Internet access.
-3. Connect old gateway Ethernet to new `enp2s0` and complete the temporary WAN
-   checks above.
+2. Add temporary `192.168.20.1/24` to old gateway `end0` while retaining both
+   its Wi-Fi Internet connection and existing `192.168.10.1/24` address.
+3. Verify new gateway `enp2s0` uses `192.168.20.2/24` and complete the temporary
+   WAN checks above without interrupting the production LAN.
 4. Complete the isolated client tests on `enp3s0`.
 5. Add and test native NixOS DHCP with a non-overlapping dynamic pool and the
    required static reservations. This is a hard prerequisite for cutover.
 6. Back up the final old AdGuard state and confirm the migrated container has
    the required rewrites, filters, allowed clients, and administrator account.
 7. Withdraw the old Tailscale subnet route and approve the new `/32` route.
-8. Shut down or physically disconnect the old gateway's former trusted-LAN
-   connection. Confirm it no longer owns `192.168.10.1`.
-9. Connect the production LAN switch to new gateway `enp3s0`.
+8. Stop the old DHCP service, remove or disable the old gateway's
+   `192.168.10.1/24` address, and confirm it no longer owns that address. Keep
+   its temporary `192.168.20.1/24` address for the new gateway WAN.
+9. Move the production LAN connection to new gateway `enp3s0`. If practical,
+   place the temporary old-to-new WAN link on a direct cable or separate switch
+   rather than sharing the production LAN Layer 2 network.
 10. Test an existing static client first, then renew one DHCP client and verify
     its address, gateway, DNS resolution, and Internet access.
 
