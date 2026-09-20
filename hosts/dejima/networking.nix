@@ -6,6 +6,46 @@
     "net.ipv6.conf.all.forwarding" = 0;
   };
 
+  # DHCP is a fundamental LAN service and therefore runs directly on NixOS.
+  # Static infrastructure addresses stay below this dynamic pool.
+  services.kea.dhcp4 = {
+    enable = true;
+    settings = {
+      authoritative = true;
+      valid-lifetime = 86400;
+
+      interfaces-config.interfaces = [ "enp3s0" ];
+
+      lease-database = {
+        type = "memfile";
+        persist = true;
+        name = "/var/lib/kea/dhcp4.leases";
+      };
+
+      subnet4 = [{
+        id = 1;
+        subnet = "192.168.10.0/24";
+        pools = [{
+          pool = "192.168.10.150 - 192.168.10.250";
+        }];
+        option-data = [
+          {
+            name = "routers";
+            data = "192.168.10.1";
+          }
+          {
+            name = "domain-name-servers";
+            data = "192.168.10.1";
+          }
+          {
+            name = "domain-name";
+            data = "lan";
+          }
+        ];
+      }];
+    };
+  };
+
   # Gateway addresses must exist even when no client or switch is connected.
   # Host services such as AdGuard bind to these addresses during boot.
   systemd.network.networks = {
@@ -73,7 +113,8 @@
 
         enp3s0 = {
           allowedTCPPorts = [ 22 53 80 443 ];
-          allowedUDPPorts = [ 53 ];
+          # DNS and DHCP respectively.
+          allowedUDPPorts = [ 53 67 ];
         };
 
         # IoT devices may use gateway DNS, but no other host service.

@@ -12,10 +12,10 @@
 The old gateway must stop using `192.168.10.1` before `enp3s0` is connected
 to the production LAN.
 
-DHCP is deliberately deferred. The old AdGuard configuration currently leases
-`192.168.10.10` through `192.168.10.255`, which overlaps static hosts `.10` and
-`.100` and includes the broadcast address. Do not reproduce that pool. A safe
-pool and reservations must be chosen before the old DHCP server is retired.
+Native NixOS Kea DHCP serves only the trusted LAN and leases
+`192.168.10.150` through `192.168.10.250`. It supplies gateway and DNS
+`192.168.10.1`. Static infrastructure addresses such as `.10`, `.11`, and
+`.100` remain outside the pool. The IoT network does not yet provide DHCP.
 
 ## Safety rules
 
@@ -24,10 +24,9 @@ pool and reservations must be chosen before the old DHCP server is retired.
   install it as the next boot generation, and reboot from the local console.
 - Keep `enp3s0` disconnected from the production LAN until the old gateway has
   stopped using `192.168.10.1`.
-- The current configuration does **not** provide DHCP on the trusted LAN or IoT
-  LAN. Use a manually configured test client during isolated testing. Do not
-  perform the production cutover until a native NixOS DHCP configuration and
-  reservations have been agreed on, built, and tested.
+- The current configuration provides native Kea DHCP on the trusted LAN only.
+  Do not activate it on the production LAN while the old AdGuard DHCP server is
+  reachable. The IoT LAN still requires manual addressing.
 - A failed Nix build does not activate any network changes.
 
 ## Secrets required before activation
@@ -308,8 +307,9 @@ curl --resolve dns.dejima.men:443:192.168.10.1 \
 3. Verify new gateway `enp2s0` uses `192.168.20.2/24` and complete the temporary
    WAN checks above without interrupting the production LAN.
 4. Complete the isolated client tests on `enp3s0`.
-5. Add and test native NixOS DHCP with a non-overlapping dynamic pool and the
-   required static reservations. This is a hard prerequisite for cutover.
+5. Build the native NixOS Kea DHCP configuration. Its dynamic pool is
+   `192.168.10.150` through `192.168.10.250`; confirm that the old AdGuard DHCP
+   server has no active leases in this range before continuing.
 6. Back up the final old AdGuard state and confirm the migrated container has
    the required rewrites, filters, allowed clients, and administrator account.
 7. Withdraw the old Tailscale subnet route and approve the new `/32` route.
