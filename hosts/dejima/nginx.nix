@@ -60,6 +60,9 @@ in
 
       "mealie.dejima.men" = traefikProxy;
       "nextcloud.dejima.men" = traefikProxy;
+      "homepage.dejima.men" = traefikProxy;
+      "authentik.dejima.men" = traefikProxy;
+      "n8n.dejima.men" = traefikProxy;
       "echo.dejima.men" = traefikProxy;
       "myapp.dejima.men" = traefikProxy;
       "vaultwarden.dejima.men" = traefikProxy;
