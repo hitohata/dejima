@@ -7,14 +7,14 @@
   };
 
   # DHCP is a fundamental LAN service and therefore runs directly on NixOS.
-  # Static infrastructure addresses stay below this dynamic pool.
+  # Static infrastructure addresses stay below the dynamic pools.
   services.kea.dhcp4 = {
     enable = true;
     settings = {
       authoritative = true;
       valid-lifetime = 86400;
 
-      interfaces-config.interfaces = [ "enp3s0" ];
+      interfaces-config.interfaces = [ "enp3s0" "enp4s0" ];
 
       lease-database = {
         type = "memfile";
@@ -22,27 +22,50 @@
         name = "/var/lib/kea/dhcp4.leases";
       };
 
-      subnet4 = [{
-        id = 1;
-        subnet = "192.168.10.0/24";
-        pools = [{
-          pool = "192.168.10.150 - 192.168.10.250";
-        }];
-        option-data = [
-          {
-            name = "routers";
-            data = "192.168.10.1";
-          }
-          {
-            name = "domain-name-servers";
-            data = "192.168.10.1";
-          }
-          {
-            name = "domain-name";
-            data = "lan";
-          }
-        ];
-      }];
+      subnet4 = [
+        {
+          id = 1;
+          subnet = "192.168.10.0/24";
+          pools = [{
+            pool = "192.168.10.150 - 192.168.10.250";
+          }];
+          option-data = [
+            {
+              name = "routers";
+              data = "192.168.10.1";
+            }
+            {
+              name = "domain-name-servers";
+              data = "192.168.10.1";
+            }
+            {
+              name = "domain-name";
+              data = "lan";
+            }
+          ];
+        }
+        {
+          id = 2;
+          subnet = "192.168.50.0/24";
+          pools = [{
+            pool = "192.168.50.150 - 192.168.50.250";
+          }];
+          option-data = [
+            {
+              name = "routers";
+              data = "192.168.50.1";
+            }
+            {
+              name = "domain-name-servers";
+              data = "192.168.50.1";
+            }
+            {
+              name = "domain-name";
+              data = "iot.lan";
+            }
+          ];
+        }
+      ];
     };
   };
 
@@ -85,7 +108,7 @@
         prefixLength = 24;
       }];
 
-      # IoT network. DHCP is deliberately deferred.
+      # IoT network.
       enp4s0.ipv4.addresses = [{
         address = "192.168.50.1";
         prefixLength = 24;
@@ -120,7 +143,8 @@
         # IoT devices may use gateway DNS, but no other host service.
         enp4s0 = {
           allowedTCPPorts = [ 53 ];
-          allowedUDPPorts = [ 53 ];
+          # DNS and DHCP respectively.
+          allowedUDPPorts = [ 53 67 ];
         };
 
         tailscale0 = {

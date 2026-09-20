@@ -12,10 +12,12 @@
 The old gateway must stop using `192.168.10.1` before `enp3s0` is connected
 to the production LAN.
 
-Native NixOS Kea DHCP serves only the trusted LAN and leases
+Native NixOS Kea DHCP serves the trusted LAN and leases
 `192.168.10.150` through `192.168.10.250`. It supplies gateway and DNS
 `192.168.10.1`. Static infrastructure addresses such as `.10`, `.11`, and
-`.100` remain outside the pool. The IoT network does not yet provide DHCP.
+`.100` remain outside the pool. Kea also serves the IoT network from
+`192.168.50.150` through `192.168.50.250`, with gateway and DNS
+`192.168.50.1`.
 
 ## Safety rules
 
@@ -24,9 +26,10 @@ Native NixOS Kea DHCP serves only the trusted LAN and leases
   install it as the next boot generation, and reboot from the local console.
 - Keep `enp3s0` disconnected from the production LAN until the old gateway has
   stopped using `192.168.10.1`.
-- The current configuration provides native Kea DHCP on the trusted LAN only.
+- The current configuration provides native Kea DHCP on the trusted and IoT
+  LANs.
   Do not activate it on the production LAN while the old AdGuard DHCP server is
-  reachable. The IoT LAN still requires manual addressing.
+  reachable.
 - A failed Nix build does not activate any network changes.
 
 ## Secrets required before activation
@@ -309,7 +312,8 @@ curl --resolve dns.dejima.men:443:192.168.10.1 \
 4. Complete the isolated client tests on `enp3s0`.
 5. Build the native NixOS Kea DHCP configuration. Its dynamic pool is
    `192.168.10.150` through `192.168.10.250`; confirm that the old AdGuard DHCP
-   server has no active leases in this range before continuing.
+   server has no active leases in this range before continuing. The separate
+   IoT pool is `192.168.50.150` through `192.168.50.250`.
 6. Back up the final old AdGuard state and confirm the migrated container has
    the required rewrites, filters, allowed clients, and administrator account.
 7. Withdraw the old Tailscale subnet route and approve the new `/32` route.
