@@ -109,6 +109,16 @@ in
       # Immich currently listens directly on the first Kubernetes node.
       "immich.dejima.men" = immichProxy;
 
+      # OpenMediaVault runs directly on the NAS, outside Kubernetes.
+      "pi-nas.dejima.men" = {
+        forceSSL = true;
+        useACMEHost = "dejima.men";
+        locations."/" = {
+          proxyPass = "http://192.168.10.100";
+          proxyWebsockets = true;
+        };
+      };
+
       # Argo CD is served directly from the Kubernetes node's LAN endpoint.
       # Use its stable address: the gateway itself uses public resolvers and
       # cannot resolve the LAN-only argocd.n100.lan hostname during startup.
@@ -118,6 +128,11 @@ in
         locations."/" = {
           proxyPass = "http://192.168.10.10";
           proxyWebsockets = true;
+          extraConfig = ''
+            # Traefik routes Argo CD only for its internal LAN hostname.
+            proxy_set_header Host argocd.n100.lan;
+            proxy_set_header X-Forwarded-Host $host;
+          '';
         };
       };
 
