@@ -1,6 +1,19 @@
 { config, ... }:
 
 let
+  forwardedProxyHeaders = ''
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Server $hostname;
+  '';
+
+  proxyHeaders = ''
+    proxy_set_header Host $host;
+    ${forwardedProxyHeaders}
+  '';
+
   traefikProxy = {
     forceSSL = true;
     useACMEHost = "dejima.men";
@@ -8,11 +21,12 @@ let
       proxyPass = "http://traefik";
       proxyWebsockets = true;
       extraConfig = ''
-        # recommendedProxySettings preserves Host, X-Forwarded-For, and the
-        # browser-facing HTTPS scheme for applications behind Traefik.
+        # Preserve client and browser-facing HTTPS information for applications
+        # behind Traefik.
         proxy_request_buffering off;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
+        ${proxyHeaders}
       '';
     };
   };
@@ -26,6 +40,7 @@ let
       extraConfig = ''
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
+        ${proxyHeaders}
       '';
     };
   };
@@ -40,6 +55,7 @@ let
         proxy_request_buffering off;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
+        ${proxyHeaders}
       '';
     };
   };
@@ -62,7 +78,8 @@ in
     enable = true;
     recommendedGzipSettings = true;
     recommendedOptimisation = true;
-    recommendedProxySettings = true;
+    # Define proxy headers in each location so Argo CD can override Host.
+    recommendedProxySettings = false;
     recommendedTlsSettings = true;
     clientMaxBodySize = "0";
 
@@ -84,6 +101,7 @@ in
         locations."/" = {
           proxyPass = "http://127.0.0.1:3000";
           proxyWebsockets = true;
+          extraConfig = proxyHeaders;
         };
       };
 
@@ -117,6 +135,7 @@ in
         locations."/" = {
           proxyPass = "http://192.168.10.100";
           proxyWebsockets = true;
+          extraConfig = proxyHeaders;
         };
       };
 
@@ -132,7 +151,7 @@ in
           extraConfig = ''
             # Traefik routes Argo CD only for its internal LAN hostname.
             proxy_set_header Host argocd.n100.lan;
-            proxy_set_header X-Forwarded-Host $host;
+            ${forwardedProxyHeaders}
           '';
         };
       };
