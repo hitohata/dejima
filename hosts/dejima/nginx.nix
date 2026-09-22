@@ -31,6 +31,16 @@ let
     };
   };
 
+  largeDataTraefikProxy = traefikProxy // {
+    locations."/" = traefikProxy.locations."/" // {
+      # Stream large downloads and media without using gateway disk for proxy
+      # response buffers.
+      extraConfig = traefikProxy.locations."/".extraConfig + ''
+        proxy_buffering off;
+      '';
+    };
+  };
+
   homeAssistantProxy = {
     forceSSL = true;
     useACMEHost = "dejima.men";
@@ -53,6 +63,7 @@ let
       proxyWebsockets = true;
       extraConfig = ''
         proxy_request_buffering off;
+        proxy_buffering off;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
         ${proxyHeaders}
@@ -106,7 +117,7 @@ in
       };
 
       "mealie.dejima.men" = traefikProxy;
-      "nextcloud.dejima.men" = traefikProxy;
+      "nextcloud.dejima.men" = largeDataTraefikProxy;
       "homepage.dejima.men" = traefikProxy;
       "authentik.dejima.men" = traefikProxy;
       "n8n.dejima.men" = traefikProxy;
@@ -115,7 +126,7 @@ in
       "vaultwarden.dejima.men" = traefikProxy;
       "it-tools.dejima.men" = traefikProxy;
       "linkwarden.dejima.men" = traefikProxy;
-      "jellyfin.dejima.men" = traefikProxy;
+      "jellyfin.dejima.men" = largeDataTraefikProxy;
       "forgejo.dejima.men" = traefikProxy;
       "paperless.dejima.men" = traefikProxy;
       "stirling-pdf.dejima.men" = traefikProxy;
