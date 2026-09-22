@@ -110,11 +110,13 @@ in
       "immich.dejima.men" = immichProxy;
 
       # Argo CD is served directly from the Kubernetes node's LAN endpoint.
+      # Use its stable address: the gateway itself uses public resolvers and
+      # cannot resolve the LAN-only argocd.n100.lan hostname during startup.
       "argocd.dejima.men" = {
         forceSSL = true;
         useACMEHost = "dejima.men";
         locations."/" = {
-          proxyPass = "http://argocd.n100.lan";
+          proxyPass = "http://192.168.10.10";
           proxyWebsockets = true;
         };
       };
