@@ -109,6 +109,16 @@ in
       # Immich currently listens directly on the first Kubernetes node.
       "immich.dejima.men" = immichProxy;
 
+      # Argo CD is served directly from the Kubernetes node's LAN endpoint.
+      "argocd.dejima.men" = {
+        forceSSL = true;
+        useACMEHost = "dejima.men";
+        locations."/" = {
+          proxyPass = "http://argocd.n100.lan";
+          proxyWebsockets = true;
+        };
+      };
+
       # Keep the former HTTP-only LAN name usable while moving clients to the
       # certificate-covered dejima.men name.  Do not serve HTTPS for .sv.
       "homeassistant.sv" = {
