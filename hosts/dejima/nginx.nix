@@ -55,21 +55,6 @@ let
     };
   };
 
-  immichProxy = {
-    forceSSL = true;
-    useACMEHost = "dejima.men";
-    locations."/" = {
-      proxyPass = "http://192.168.10.10:2283";
-      proxyWebsockets = true;
-      extraConfig = ''
-        proxy_request_buffering off;
-        proxy_buffering off;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
-        ${proxyHeaders}
-      '';
-    };
-  };
 in
 {
   security.acme = {
@@ -136,8 +121,9 @@ in
       # Home Assistant is a direct IoT-network service, not a Kubernetes one.
       "homeassistant.dejima.men" = homeAssistantProxy;
 
-      # Immich currently listens directly on the first Kubernetes node.
-      "immich.dejima.men" = immichProxy;
+      # Immich is exposed by its host-based Traefik ingress.  It handles large
+      # photo/video uploads, so retain the unbuffered large-data proxy settings.
+      "immich.dejima.men" = largeDataTraefikProxy;
 
       # OpenMediaVault runs directly on the NAS, outside Kubernetes.
       "pi-nas.dejima.men" = {
