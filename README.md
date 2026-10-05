@@ -131,6 +131,11 @@ administration interface is host-local on `127.0.0.1:3000` and is published by
 Nginx at `https://dns.dejima.men`. Nginx proxies the remaining configured
 `*.dejima.men` services to the LAN and Kubernetes endpoints.
 
+The media request portal (Seerr) is proxied through Traefik at
+`https://jellyseerr.dejima.men`, using the shared wildcard certificate. Its DNS
+record must resolve to the gateway. Sonarr, Radarr, and Bazarr remain available
+through their `*.n100.lan` Kubernetes ingress hosts without gateway proxy routes.
+
 Kea's dynamic pools are `192.168.10.150`–`192.168.10.250` for the trusted LAN
 and `192.168.50.10`–`192.168.50.254` for IoT. Static infrastructure addresses
 are kept outside those ranges. Native Wi-Fi uses `192.168.60.2`–`192.168.60.254`

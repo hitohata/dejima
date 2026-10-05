@@ -112,6 +112,7 @@ in
       "it-tools.dejima.men" = traefikProxy;
       "linkwarden.dejima.men" = traefikProxy;
       "jellyfin.dejima.men" = largeDataTraefikProxy;
+      "jellyseerr.dejima.men" = traefikProxy;
       "forgejo.dejima.men" = traefikProxy;
       "paperless.dejima.men" = traefikProxy;
       "stirling-pdf.dejima.men" = traefikProxy;
