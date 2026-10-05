@@ -15,7 +15,7 @@
       valid-lifetime = 86400;
 
       interfaces-config = {
-        interfaces = [ "enp3s0" "enp4s0" ];
+        interfaces = [ "enp3s0" "enp4s0" "enp5s0" ];
         # A port may have no carrier while the gateway or switch boots.
         # Keep serving available ports while retrying unavailable ones for an
         # hour. If a port is connected later, restart this service once.
@@ -31,6 +31,24 @@
       };
 
       subnet4 = [
+        {
+          id = 3;
+          subnet = "192.168.60.0/24";
+          interface = "enp5s0";
+          pools = [{
+            pool = "192.168.60.100 - 192.168.60.200";
+          }];
+          option-data = [
+            {
+              name = "routers";
+              data = "192.168.60.1";
+            }
+            {
+              name = "domain-name-servers";
+              data = "1.1.1.1, 8.8.8.8";
+            }
+          ];
+        }
         {
           id = 1;
           subnet = "192.168.10.0/24";
@@ -88,6 +106,10 @@
       ConfigureWithoutCarrier = true;
       IgnoreCarrierLoss = true;
     };
+    "40-enp5s0".networkConfig = {
+      ConfigureWithoutCarrier = true;
+      IgnoreCarrierLoss = true;
+    };
   };
 
   networking = {
@@ -98,14 +120,14 @@
 
     nameservers = [ "1.1.1.1" "8.8.8.8" ];
 
-    # Temporary untagged upstream connection for AP setup. The upstream router
-    # supplies DHCP to both Dejima and the AP; VLAN/SSID separation comes later.
-    bridges.br-wan.interfaces = [ "enp2s0" "enp5s0" ];
-
     interfaces = {
-      br-wan.useDHCP = true;
-      enp2s0.useDHCP = false;
-      enp5s0.useDHCP = false;
+      enp2s0.useDHCP = true;
+
+      # Temporary untagged AP setup network; VLAN/SSID separation comes later.
+      enp5s0.ipv4.addresses = [{
+        address = "192.168.60.1";
+        prefixLength = 24;
+      }];
 
       # Trusted LAN. This cable must remain disconnected until the old gateway
       # has stopped using 192.168.10.1.
@@ -125,8 +147,8 @@
 
     nat = {
       enable = true;
-      externalInterface = "br-wan";
-      internalInterfaces = [ "enp3s0" "enp4s0" ];
+      externalInterface = "enp2s0";
+      internalInterfaces = [ "enp3s0" "enp4s0" "enp5s0" ];
     };
 
     firewall = {
@@ -136,7 +158,10 @@
       checkReversePath = "loose";
 
       interfaces = {
-        br-wan.allowedUDPPorts = [ 41641 ];
+        enp2s0.allowedUDPPorts = [ 41641 ];
+
+        # AP setup clients use external DNS and only need host DHCP access.
+        enp5s0.allowedUDPPorts = [ 67 ];
 
         enp3s0 = {
           allowedTCPPorts = [ 22 53 80 443 ];
@@ -159,7 +184,10 @@
 
       extraForwardRules = ''
         # Dockerized services may reach the Internet through the host WAN.
-        iifname "docker0" oifname "br-wan" accept
+        iifname "docker0" oifname "enp2s0" accept
+
+        # Allow trusted clients to configure the AP by its DHCP address.
+        iifname "enp3s0" oifname "enp5s0" accept
 
         # Trusted LAN may initiate connections to IoT; IoT may not initiate
         # connections to the trusted LAN. Return traffic is statefully allowed.

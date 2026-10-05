@@ -6,8 +6,8 @@ proxying, and the secrets needed by those services.
 
 ## What it runs
 
-- Kea DHCP for the trusted LAN (`192.168.10.0/24`) and IoT network
-  (`192.168.50.0/24`)
+- Kea DHCP for the trusted LAN (`192.168.10.0/24`), IoT network
+  (`192.168.50.0/24`), and temporary AP setup network (`192.168.60.0/24`)
 - AdGuard Home for DNS, bound only to the two gateway LAN addresses
 - Tailscale, with state persisted on the host
 - Nginx with Cloudflare DNS-01 ACME certificates for `dejima.men` and its
@@ -15,17 +15,22 @@ proxying, and the secrets needed by those services.
 - Home Manager configuration for the `dejima` account
 
 The trusted LAN is `enp3s0` (`192.168.10.1/24`), the IoT network is `enp4s0`
-(`192.168.50.1/24`). For temporary AP setup, `enp2s0` (upstream) and `enp5s0`
-(AP) share the untagged `br-wan` bridge. Dejima obtains its WAN address on
-`br-wan` through DHCP, and the upstream router also supplies the AP's address
-and Internet access. The upstream network must support multiple DHCP clients.
-SSID/VLAN separation is deferred; the AP is currently on the upstream network.
+(`192.168.50.1/24`). The WAN interface is `enp2s0`, using upstream DHCP.
+For temporary AP setup, `enp5s0` provides an untagged network with gateway
+`192.168.60.1/24`, DHCP addresses `192.168.60.100`–`192.168.60.200`, and public
+DNS servers `1.1.1.1` and `8.8.8.8`. Internet access is NATed through `enp2s0`.
+Trusted LAN clients can initiate connections to the AP for management; AP setup
+clients cannot initiate connections to the trusted or IoT networks.
+SSID/VLAN separation is deferred. This replaces the temporary WAN bridge so
+Dejima's DHCP server does not serve the upstream network. Ensure the upstream
+network does not also use `192.168.60.0/24`.
 
 Keep the AP's uplink and management traffic untagged during setup and disable
-its DHCP server when using AP/bridge mode. Find its management address in the
-upstream router's DHCP lease list. Moving Dejima's WAN DHCP client to the bridge
-may change its upstream address and interrupt connections; activate this change
-from a local console or the trusted LAN.
+its DHCP server when using AP/bridge mode. Configure the AP's management address
+via DHCP and find its lease in `/var/lib/kea/dhcp4.leases` on Dejima.
+Moving WAN DHCP from the previous bridge back to `enp2s0` may change Dejima's
+upstream address and interrupt connections; activate from a local console or
+the trusted LAN. Reconnect or renew the AP's DHCP lease after activation.
 
 ## Repository layout
 
