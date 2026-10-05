@@ -15,8 +15,17 @@ proxying, and the secrets needed by those services.
 - Home Manager configuration for the `dejima` account
 
 The trusted LAN is `enp3s0` (`192.168.10.1/24`), the IoT network is `enp4s0`
-(`192.168.50.1/24`), and `enp5s0` is intentionally unused. The configured WAN
-interface is `enp2s0`.
+(`192.168.50.1/24`). For temporary AP setup, `enp2s0` (upstream) and `enp5s0`
+(AP) share the untagged `br-wan` bridge. Dejima obtains its WAN address on
+`br-wan` through DHCP, and the upstream router also supplies the AP's address
+and Internet access. The upstream network must support multiple DHCP clients.
+SSID/VLAN separation is deferred; the AP is currently on the upstream network.
+
+Keep the AP's uplink and management traffic untagged during setup and disable
+its DHCP server when using AP/bridge mode. Find its management address in the
+upstream router's DHCP lease list. Moving Dejima's WAN DHCP client to the bridge
+may change its upstream address and interrupt connections; activate this change
+from a local console or the trusted LAN.
 
 ## Repository layout
 

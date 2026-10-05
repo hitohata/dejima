@@ -98,8 +98,14 @@
 
     nameservers = [ "1.1.1.1" "8.8.8.8" ];
 
+    # Temporary untagged upstream connection for AP setup. The upstream router
+    # supplies DHCP to both Dejima and the AP; VLAN/SSID separation comes later.
+    bridges.br-wan.interfaces = [ "enp2s0" "enp5s0" ];
+
     interfaces = {
-      enp2s0.useDHCP = true;
+      br-wan.useDHCP = true;
+      enp2s0.useDHCP = false;
+      enp5s0.useDHCP = false;
 
       # Trusted LAN. This cable must remain disconnected until the old gateway
       # has stopped using 192.168.10.1.
@@ -113,15 +119,13 @@
         address = "192.168.50.1";
         prefixLength = 24;
       }];
-
-      # enp5s0 is intentionally left unconfigured.
     };
 
     nftables.enable = true;
 
     nat = {
       enable = true;
-      externalInterface = "enp2s0";
+      externalInterface = "br-wan";
       internalInterfaces = [ "enp3s0" "enp4s0" ];
     };
 
@@ -132,7 +136,7 @@
       checkReversePath = "loose";
 
       interfaces = {
-        enp2s0.allowedUDPPorts = [ 41641 ];
+        br-wan.allowedUDPPorts = [ 41641 ];
 
         enp3s0 = {
           allowedTCPPorts = [ 22 53 80 443 ];
@@ -155,7 +159,7 @@
 
       extraForwardRules = ''
         # Dockerized services may reach the Internet through the host WAN.
-        iifname "docker0" oifname "enp2s0" accept
+        iifname "docker0" oifname "br-wan" accept
 
         # Trusted LAN may initiate connections to IoT; IoT may not initiate
         # connections to the trusted LAN. Return traffic is statefully allowed.
