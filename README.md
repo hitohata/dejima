@@ -17,7 +17,7 @@ proxying, and the secrets needed by those services.
 The trusted LAN is `enp3s0` (`192.168.10.1/24`), the IoT network is `enp4s0`
 (`192.168.50.1/24`). The WAN interface is `enp2s0`, using upstream DHCP.
 For temporary AP setup, `enp5s0` provides an untagged network with gateway
-`192.168.60.1/24`, DHCP addresses `192.168.60.100`–`192.168.60.200`, and public
+`192.168.60.1/24`, DHCP addresses `192.168.60.2`–`192.168.60.254` (253 leases), and public
 DNS servers `1.1.1.1` and `8.8.8.8`. Internet access is NATed through `enp2s0`.
 Trusted LAN clients can initiate connections to the AP for management; AP setup
 clients cannot initiate connections to the trusted or IoT networks.
