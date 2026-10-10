@@ -39,7 +39,10 @@ class LocalDNSTest(unittest.TestCase):
             result = yaml.safe_load(path.read_text())
             self.assertTrue(result["filtering"]["rewrites_enabled"])
             self.assertFalse(result["filtering"]["protection_enabled"])
-            self.assertEqual(result["filtering"]["rewrites"], original["filtering"]["rewrites"])
+            self.assertEqual(result["filtering"]["rewrites"], [
+                original["filtering"]["rewrites"][0],
+                {"domain": "*.dejima.men", "answer": "192.168.10.1", "enabled": True},
+            ])
             self.assertEqual(result["users"], original["users"])
             self.assertEqual(result["dns"]["allowed_clients"], [
                 *original["dns"]["allowed_clients"], "192.168.60.0/24",
@@ -61,6 +64,20 @@ class LocalDNSTest(unittest.TestCase):
                 result = yaml.safe_load(path.read_text())
                 self.assertEqual(result["dns"], dns)
                 self.assertTrue(result["filtering"]["rewrites_enabled"])
+
+    def test_enabled_wifi_wildcard_migrates_to_tailscale_routed_address(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "AdGuardHome.yaml"
+            path.write_text(yaml.safe_dump({
+                "filtering": {"rewrites_enabled": True, "rewrites": [
+                    {"domain": "*.dejima.men", "answer": "192.168.60.1", "enabled": True},
+                ]},
+            }))
+            migration.configure(path)
+            result = yaml.safe_load(path.read_text())
+            self.assertEqual(result["filtering"]["rewrites"], [
+                {"domain": "*.dejima.men", "answer": "192.168.10.1", "enabled": True},
+            ])
 
 
 if __name__ == "__main__":

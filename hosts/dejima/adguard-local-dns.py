@@ -36,7 +36,9 @@ def configure(path):
     # owned by Nix and will be restored on every container start.
     managed = {
         "domain": "*.dejima.men",
-        "answer": "192.168.60.1",
+        # Shared service address: already advertised as a /32 by Tailscale.
+        # Native Wi-Fi can reach host Nginx here via its existing input rules.
+        "answer": "192.168.10.1",
         "enabled": True,
     }
     updated = [r for r in rewrites if r["domain"] != managed["domain"]] + [managed]

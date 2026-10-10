@@ -36,7 +36,7 @@ DNS endpoint at `192.168.60.1:53` over TCP/UDP. GuestDenpa uses public DNS.
 IAmDempa may access Dejima's Nginx on TCP ports 80/443; Nginx connects to the
 private backends on its behalf. This exposes all configured Nginx virtual hosts,
 including administration sites, subject to each application's authentication.
-GuestDenpa cannot access Nginx. AdGuard resolves `*.dejima.men` to `192.168.60.1`
+GuestDenpa cannot access Nginx. AdGuard resolves `*.dejima.men` to `192.168.10.1`
 using the managed local rewrite; existing explicit host rewrites take precedence.
 For a DNS-independent check from IAmDempa, use
 `curl --resolve homepage.dejima.men:443:192.168.60.1 https://homepage.dejima.men/`.
@@ -147,7 +147,7 @@ Guest Wi-Fi retains public DNS and isolation. The WAX610 SSID/VLAN settings
 and Nginx configuration do not need to change for this DNS migration.
 
 Before each AdGuard container start, `hosts/dejima/adguard-local-dns.py` merges
-the managed `*.dejima.men -> 192.168.60.1` rewrite into the persistent
+the managed `*.dejima.men -> 192.168.10.1` rewrite into the persistent
 `/var/lib/adguardhome/conf/AdGuardHome.yaml`. It runs after the old container
 has been removed, preserves other settings and explicit rewrites, and saves
 the first original as `AdGuardHome.yaml.before-local-dns`. The configuration
@@ -173,10 +173,24 @@ curl https://jellyfin.dejima.men/System/Info/Public
 ```
 
 Check TCP DNS too with `dig +tcp @192.168.60.1 jellyfin.dejima.men` if available.
-Both local names should resolve to the gateway (an existing explicit rewrite
-may return `192.168.10.1`). Verify GuestDenpa still cannot query any of the
+Both local names should resolve to `192.168.10.1` unless an explicit rewrite
+overrides them. Verify GuestDenpa still cannot query any of the
 gateway's DNS addresses or reach Nginx. Devices with manually configured DNS
 or encrypted DNS must use the local resolver to resolve these names.
+
+The DNS server address and service address serve different purposes: native
+Wi-Fi queries AdGuard at `192.168.60.1`, but service names resolve to the
+gateway's `192.168.10.1`. Nginx accepts these connections on the gateway itself;
+they are not forwarded into the trusted LAN. This shared service address also
+matches the existing `192.168.10.1/32` Tailscale route, so no new route approval
+is needed. Do not point the wildcard at `192.168.60.1` unless that address is
+also routed through Tailscale.
+
+For remote name resolution, the tailnet must use `192.168.10.1` as a DNS server
+for `dejima.men` (a restricted nameserver/split DNS in Tailscale's DNS settings),
+and clients must accept Tailscale DNS and the gateway's subnet route. MagicDNS
+alone does not provide these custom service records. The active gateway is
+`dejima-new`; the older `dejima` Tailscale node is not this gateway.
 
 Rolling back Nix does not undo the persistent rewrite. To restore the original
 AdGuard configuration, first roll back the Nix change, then stop
