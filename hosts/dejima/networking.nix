@@ -45,7 +45,7 @@
             }
             {
               name = "domain-name-servers";
-              data = "1.1.1.1, 8.8.8.8";
+              data = "192.168.60.1";
             }
           ];
         }
@@ -196,6 +196,9 @@
         chain forward {
           type filter hook forward priority -1; policy accept;
           iifname { "enp5s0", "vlan100" } ct state { established, related } accept
+          # Docker DNAT has already changed the destination. Match the original
+          # published endpoint, not a container IP that can change on restart.
+          iifname "enp5s0" oifname "docker0" ct status dnat meta l4proto { tcp, udp } ct original ip daddr 192.168.60.1 ct original proto-dst 53 counter accept
           iifname { "enp5s0", "vlan100" } oifname != "enp2s0" counter drop
         }
       '';
@@ -216,11 +219,11 @@
       interfaces = {
         enp2s0.allowedUDPPorts = [ 41641 ];
 
-        # IAmDempa may reach host Nginx, which proxies to the private backends.
+        # IAmDempa may use local DNS and Nginx for the private backends.
         # Direct forwarding into the trusted/IoT networks remains blocked.
         enp5s0 = {
-          allowedTCPPorts = [ 80 443 ];
-          allowedUDPPorts = [ 67 ];
+          allowedTCPPorts = [ 53 80 443 ];
+          allowedUDPPorts = [ 53 67 ];
         };
 
         # GuestDenpa uses external DNS and only needs host DHCP access.

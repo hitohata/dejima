@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, lib, pkgs, ... }:
 
 {
   virtualisation.docker.enable = true;
@@ -41,6 +41,8 @@
         "192.168.10.1:53:53/udp"
         "192.168.50.1:53:53/tcp"
         "192.168.50.1:53:53/udp"
+        "192.168.60.1:53:53/tcp"
+        "192.168.60.1:53:53/udp"
         "127.0.0.1:3000:3000/tcp"
       ];
       volumes = [
@@ -49,6 +51,12 @@
       ];
     };
   };
+
+  # Run after the OCI module removes any old container: AdGuard must be stopped
+  # when its persistent configuration is edited, or it can overwrite the change.
+  systemd.services.docker-adguardhome.serviceConfig.ExecStartPre = lib.mkAfter [
+    "${pkgs.python3.withPackages (ps: [ ps.pyyaml ])}/bin/python3 ${./adguard-local-dns.py} /var/lib/adguardhome/conf/AdGuardHome.yaml"
+  ];
 
   systemd.tmpfiles.rules = [
     "d /var/lib/tailscale-container 0700 root root -"

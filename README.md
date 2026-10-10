@@ -9,7 +9,7 @@ proxying, and the secrets needed by those services.
 - Kea DHCP for the trusted LAN (`192.168.10.0/24`), IoT network
   (`192.168.50.0/24`), native Wi-Fi/AP management (`192.168.60.0/24`),
   and guest Wi-Fi (`192.168.100.0/24`)
-- AdGuard Home for DNS, bound only to the two gateway LAN addresses
+- AdGuard Home for DNS on the trusted LAN, IoT, and native Wi-Fi gateway addresses
 - Tailscale, with state persisted on the host
 - Nginx with Cloudflare DNS-01 ACME certificates for `dejima.men` and its
   wildcard subdomain
@@ -20,7 +20,7 @@ to `enp5s0`, carrying native VLAN 1 untagged and VLANs 10, 30, and 100 tagged.
 
 | SSID | AP VLAN | Dejima interface / wired port | Gateway | DHCP DNS |
 | --- | --- | --- | --- | --- |
-| IAmDempa | 1 (untagged) | `enp5s0` | `192.168.60.1/24` | `1.1.1.1`, `8.8.8.8` |
+| IAmDempa | 1 (untagged) | `enp5s0` | `192.168.60.1/24` | AdGuard at `192.168.60.1` |
 | ToThings | 30 | `br-iot`: `vlan30` + `enp4s0` | `192.168.50.1/24` | AdGuard at `192.168.50.1` |
 | DoNotUseThisWifi | 10 | `br-lan`: `vlan10` + `enp3s0` | `192.168.10.1/24` | AdGuard at `192.168.10.1` |
 | GuestDenpa | 100 | `vlan100` | `192.168.100.1/24` | `1.1.1.1`, `8.8.8.8` |
@@ -31,13 +31,14 @@ their existing subnets and DHCP pools. VLAN numbers need not match subnet number
 All four networks use NAT through `enp2s0` for Internet access.
 
 IAmDempa and GuestDenpa cannot initiate direct connections to other local networks
-or Docker-published services. They use public DNS without AdGuard filtering.
+or Docker-published services, except that IAmDempa can query AdGuard's published
+DNS endpoint at `192.168.60.1:53` over TCP/UDP. GuestDenpa uses public DNS.
 IAmDempa may access Dejima's Nginx on TCP ports 80/443; Nginx connects to the
 private backends on its behalf. This exposes all configured Nginx virtual hosts,
 including administration sites, subject to each application's authentication.
-GuestDenpa cannot access Nginx. Service hostnames must resolve to a Dejima address
-reachable from IAmDempa (preferably `192.168.60.1`); opening the firewall does not
-create DNS records. For a DNS-independent check from IAmDempa, use
+GuestDenpa cannot access Nginx. AdGuard resolves `*.dejima.men` to `192.168.60.1`
+using the managed local rewrite; existing explicit host rewrites take precedence.
+For a DNS-independent check from IAmDempa, use
 `curl --resolve homepage.dejima.men:443:192.168.60.1 https://homepage.dejima.men/`.
 Trusted clients may initiate connections to IoT and the native Wi-Fi network
 to manage the AP; replies are allowed. IoT cannot initiate trusted-LAN connections.
@@ -126,7 +127,8 @@ docker ps
 ip -brief address
 ```
 
-AdGuard Home serves DNS on `192.168.10.1:53` and `192.168.50.1:53`; its
+AdGuard Home serves DNS on `192.168.10.1:53`, `192.168.50.1:53`, and
+`192.168.60.1:53`; its
 administration interface is host-local on `127.0.0.1:3000` and is published by
 Nginx at `https://dns.dejima.men`. Nginx proxies the remaining configured
 `*.dejima.men` services to the LAN and Kubernetes endpoints.
@@ -135,6 +137,46 @@ The media request portal (Seerr) is proxied through Traefik at
 `https://jellyseerr.dejima.men`, using the shared wildcard certificate. Its DNS
 record must resolve to the gateway. Sonarr, Radarr, and Bazarr remain available
 through their `*.n100.lan` Kubernetes ingress hosts without gateway proxy routes.
+
+### Local service DNS
+
+Kea advertises only `192.168.60.1` as DNS for native Wi-Fi clients. Public DNS
+servers belong in AdGuard's upstream settings, not as a secondary DHCP DNS
+server: clients using a public resolver cannot resolve these local names.
+Guest Wi-Fi retains public DNS and isolation. The WAX610 SSID/VLAN settings
+and Nginx configuration do not need to change for this DNS migration.
+
+Before each AdGuard container start, `hosts/dejima/adguard-local-dns.py` merges
+the managed `*.dejima.men -> 192.168.60.1` rewrite into the persistent
+`/var/lib/adguardhome/conf/AdGuardHome.yaml`. It runs after the old container
+has been removed, preserves other settings and explicit rewrites, and saves
+the first original as `AdGuardHome.yaml.before-local-dns`. The configuration
+must already exist; on a fresh gateway, restore AdGuard's configuration and
+work directories from backup before starting it. Back these directories up
+securely; credentials stay outside Git. Edit the script to change the managed
+wildcard, since changes to that wildcard in the UI are reset on container start.
+
+Build and activate the gateway configuration using the commands above. This
+restarts AdGuard briefly. Reconnect Wi-Fi clients to renew DHCP, then check
+from a device on IAmDempa:
+
+```bash
+nslookup jellyfin.dejima.men 192.168.60.1
+nslookup homepage.dejima.men 192.168.60.1
+nslookup example.com 192.168.60.1
+curl https://jellyfin.dejima.men/System/Info/Public
+```
+
+Check TCP DNS too with `dig +tcp @192.168.60.1 jellyfin.dejima.men` if available.
+Both local names should resolve to the gateway (an existing explicit rewrite
+may return `192.168.10.1`). Verify GuestDenpa still cannot query any of the
+gateway's DNS addresses or reach Nginx. Devices with manually configured DNS
+or encrypted DNS must use the local resolver to resolve these names.
+
+Rolling back Nix does not undo the persistent rewrite. To restore the original
+AdGuard configuration, first roll back the Nix change, then stop
+`docker-adguardhome`, restore `AdGuardHome.yaml.before-local-dns` with its
+ownership and permissions, and start the service. Renew client DHCP again.
 
 Kea's dynamic pools are `192.168.10.150`–`192.168.10.250` for the trusted LAN
 and `192.168.50.10`–`192.168.50.254` for IoT. Static infrastructure addresses
