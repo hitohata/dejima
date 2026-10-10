@@ -151,6 +151,11 @@ the managed `*.dejima.men -> 192.168.60.1` rewrite into the persistent
 `/var/lib/adguardhome/conf/AdGuardHome.yaml`. It runs after the old container
 has been removed, preserves other settings and explicit rewrites, and saves
 the first original as `AdGuardHome.yaml.before-local-dns`. The configuration
+merge also enables DNS rewrites globally (including existing enabled rewrites)
+and adds `192.168.60.0/24` to a nonempty DNS client allowlist. An empty allowlist
+remains unrestricted; existing client entries are preserved. These settings
+are reapplied on each container start along with the wildcard.
+The configuration
 must already exist; on a fresh gateway, restore AdGuard's configuration and
 work directories from backup before starting it. Back these directories up
 securely; credentials stay outside Git. Edit the script to change the managed

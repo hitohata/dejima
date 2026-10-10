@@ -1,6 +1,7 @@
 """Merge the managed local DNS rewrite while the AdGuard container is stopped."""
 
 import os
+from copy import deepcopy
 from pathlib import Path
 import shutil
 import sys
@@ -20,6 +21,14 @@ def configure(path):
     config = yaml.safe_load(original)
     if not isinstance(config, dict):
         raise SystemExit("Expected an AdGuard configuration mapping; left unchanged.")
+    previous = deepcopy(config)
+
+    # An empty allowlist allows every client. Extend a configured allowlist
+    # without accidentally restricting an installation that has none.
+    dns = config.setdefault("dns", {})
+    allowed = dns.get("allowed_clients") or []
+    if allowed and "192.168.60.0/24" not in allowed:
+        dns["allowed_clients"] = [*allowed, "192.168.60.0/24"]
 
     filtering = config.setdefault("filtering", {})
     rewrites = filtering.get("rewrites") or []
@@ -31,9 +40,11 @@ def configure(path):
         "enabled": True,
     }
     updated = [r for r in rewrites if r["domain"] != managed["domain"]] + [managed]
-    if updated == rewrites:
-        return
     filtering["rewrites"] = updated
+    # Per-record enabled=true is insufficient when the global switch is off.
+    filtering["rewrites_enabled"] = True
+    if config == previous:
+        return
 
     # Keep the first pre-migration configuration, including ownership and mode.
     metadata = path.stat()
