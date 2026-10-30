@@ -1,6 +1,23 @@
-{ config, ... }:
+{ config, lib, ... }:
 
 let
+  # Restrict whole administration hosts, including any future locations.
+  # Match the socket peer, never a client-supplied forwarding header.
+  administrationHosts = [
+    "dns.dejima.men"
+    "argocd.dejima.men"
+    "pi-nas.dejima.men"
+    "netdata.dejima.men"
+    "wud.dejima.men"
+  ];
+  administrationAccess = ''
+    allow 127.0.0.1;
+    allow ::1;
+    allow 192.168.10.0/24;
+    allow 100.64.0.0/10;
+    deny all;
+  '';
+
   forwardedProxyHeaders = ''
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -90,7 +107,11 @@ in
       };
     };
 
-    virtualHosts = {
+    virtualHosts = lib.mapAttrs (name: host:
+      host // lib.optionalAttrs (builtins.elem name administrationHosts) {
+        extraConfig = (host.extraConfig or "") + administrationAccess;
+      }
+    ) {
       "dns.dejima.men" = {
         forceSSL = true;
         useACMEHost = "dejima.men";

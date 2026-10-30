@@ -34,12 +34,25 @@ IAmDempa and GuestDenpa cannot initiate direct connections to other local networ
 or Docker-published services, except that IAmDempa can query AdGuard's published
 DNS endpoint at `192.168.60.1:53` over TCP/UDP. GuestDenpa uses public DNS.
 IAmDempa may access Dejima's Nginx on TCP ports 80/443; Nginx connects to the
-private backends on its behalf. This exposes all configured Nginx virtual hosts,
-including administration sites, subject to each application's authentication.
+private backends on its behalf. Application services remain available, subject
+to each application's authentication. Administration hosts `dns`, `argocd`,
+`pi-nas`, `netdata`, and `wud` under `dejima.men` allow only trusted LAN
+(`192.168.10.0/24`), Tailscale IPv4 peers (`100.64.0.0/10`), and loopback;
+other sources, including IAmDempa, receive HTTP 403 on HTTPS. HTTP redirects to
+HTTPS first. Nginx checks the connection source, not `X-Forwarded-For`.
+Authentik remains available for application sign-in. Administration functions
+within application hosts still rely on the application's authorization.
 GuestDenpa cannot access Nginx. AdGuard resolves `*.dejima.men` to `192.168.10.1`
 using the managed local rewrite; existing explicit host rewrites take precedence.
 For a DNS-independent check from IAmDempa, use
 `curl --resolve homepage.dejima.men:443:192.168.60.1 https://homepage.dejima.men/`.
+After applying access restrictions, check each administration host from
+IAmDempa, for example
+`curl --resolve dns.dejima.men:443:192.168.60.1 -o /dev/null -sS -w '%{http_code}\n' https://dns.dejima.men/`:
+expect 403, including when sending `X-Forwarded-For: 192.168.10.150`.
+Repeat from trusted LAN and Tailscale and verify the administration application
+is reachable; also verify Nextcloud, Immich, and Authentik still work from
+IAmDempa. GuestDenpa must remain unable to connect to Nginx at all.
 Trusted clients may initiate connections to IoT and the native Wi-Fi network
 to manage the AP; replies are allowed. IoT cannot initiate trusted-LAN connections.
 Devices within the same bridged subnet can communicate directly.
