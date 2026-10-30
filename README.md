@@ -146,6 +146,15 @@ administration interface is host-local on `127.0.0.1:3000` and is published by
 Nginx at `https://dns.dejima.men`. Nginx proxies the remaining configured
 `*.dejima.men` services to the LAN and Kubernetes endpoints.
 
+Nginx reuses connections to Traefik with up to 32 idle connections per worker
+and a 30-second idle timeout. Ordinary HTTP requests omit the upstream
+`Connection` header; WebSocket requests retain the Upgrade handshake. Traefik
+connection establishment has a 5-second timeout, while send/read inactivity
+timeouts remain one hour. Upload request buffering is disabled for Traefik
+routes; Nextcloud, Immich, and Jellyfin also disable response buffering.
+These settings reduce connection setup and gateway disk buffering; they do not
+remove Nextcloud processing or NAS/NFS bottlenecks.
+
 The media request portal (Seerr) is proxied through Traefik at
 `https://jellyseerr.dejima.men`, using the shared wildcard certificate. Its DNS
 record must resolve to the gateway. Sonarr, Radarr, and Bazarr remain available

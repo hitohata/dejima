@@ -26,9 +26,26 @@ let
     proxy_set_header X-Forwarded-Server $hostname;
   '';
 
+  # NixOS's proxyWebsockets map sends Connection: close for ordinary HTTP.
+  # Clear it instead so Traefik's upstream connection pool can be reused.
+  proxyTransportConfig = ''
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $dejima_proxy_connection;
+  '';
+
   proxyHeaders = ''
+    ${proxyTransportConfig}
     proxy_set_header Host $host;
     ${forwardedProxyHeaders}
+  '';
+
+  baseProxyConfig = ''
+    proxy_request_buffering off;
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    ${proxyHeaders}
   '';
 
   traefikProxy = {
@@ -36,14 +53,10 @@ let
     useACMEHost = "dejima.men";
     locations."/" = {
       proxyPass = "http://traefik";
-      proxyWebsockets = true;
       extraConfig = ''
         # Preserve client and browser-facing HTTPS information for applications
         # behind Traefik.
-        proxy_request_buffering off;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
-        ${proxyHeaders}
+        ${baseProxyConfig}
       '';
     };
   };
@@ -63,7 +76,6 @@ let
     useACMEHost = "dejima.men";
     locations."/" = {
       proxyPass = "http://192.168.50.2:8123";
-      proxyWebsockets = true;
       extraConfig = ''
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
@@ -96,6 +108,19 @@ in
     recommendedTlsSettings = true;
     clientMaxBodySize = "0";
 
+    appendHttpConfig = ''
+      map $http_upgrade $dejima_proxy_connection {
+        default upgrade;
+        "" "";
+      }
+    '';
+
+    # Cache idle backend connections per worker. This is not a concurrency cap.
+    upstreams.traefik.extraConfig = ''
+      keepalive 32;
+      keepalive_timeout 30s;
+    '';
+
     upstreams.traefik.servers = {
       "192.168.10.10:80" = {
         max_fails = 3;
@@ -117,7 +142,6 @@ in
         useACMEHost = "dejima.men";
         locations."/" = {
           proxyPass = "http://127.0.0.1:3000";
-          proxyWebsockets = true;
           extraConfig = proxyHeaders;
         };
       };
@@ -154,7 +178,6 @@ in
         useACMEHost = "dejima.men";
         locations."/" = {
           proxyPass = "http://192.168.10.100";
-          proxyWebsockets = true;
           extraConfig = proxyHeaders;
         };
       };
@@ -167,8 +190,8 @@ in
         useACMEHost = "dejima.men";
         locations."/" = {
           proxyPass = "http://192.168.10.10";
-          proxyWebsockets = true;
           extraConfig = ''
+            ${proxyTransportConfig}
             # Traefik routes Argo CD only for its internal LAN hostname.
             proxy_set_header Host argocd.n100.lan;
             ${forwardedProxyHeaders}
