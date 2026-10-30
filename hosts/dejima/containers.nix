@@ -13,7 +13,7 @@
 
   virtualisation.oci-containers.containers = {
     tailscale = {
-      image = "tailscale/tailscale:v1.102.3";
+      image = "tailscale/tailscale:v1.104.4";
       environmentFiles = [ config.sops.templates."tailscale.env".path ];
       environment = {
         TS_AUTH_ONCE = "true";
