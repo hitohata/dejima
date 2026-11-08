@@ -35,7 +35,7 @@
     };
 
     adguardhome = {
-      image = "adguard/adguardhome:v0.107.79";
+      image = "adguard/adguardhome:v0.107.80";
       ports = [
         "192.168.10.1:53:53/tcp"
         "192.168.10.1:53:53/udp"
