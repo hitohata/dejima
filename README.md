@@ -160,6 +160,9 @@ The media request portal (Seerr) is proxied through Traefik at
 record must resolve to the gateway. Sonarr, Radarr, and Bazarr remain available
 through their `*.n100.lan` Kubernetes ingress hosts without gateway proxy routes.
 
+Wallos, the subscription tracker, is proxied through Traefik at
+`https://wallos.dejima.men` using the shared wildcard certificate and local DNS.
+
 ### Local service DNS
 
 Kea advertises only `192.168.60.1` as DNS for native Wi-Fi clients. Public DNS

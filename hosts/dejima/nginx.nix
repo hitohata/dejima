@@ -164,6 +164,7 @@ in
       "netdata.dejima.men" = traefikProxy;
       "navidrome.dejima.men" = traefikProxy;
       "wud.dejima.men" = traefikProxy;
+      "wallos.dejima.men" = traefikProxy;
 
       # Home Assistant is a direct IoT-network service, not a Kubernetes one.
       "homeassistant.dejima.men" = homeAssistantProxy;
