@@ -165,7 +165,14 @@ in
       "netdata.dejima.men" = traefikProxy;
       "navidrome.dejima.men" = traefikProxy;
       "wud.dejima.men" = traefikProxy;
-      "firefly-iii.dejima.men" = traefikProxy;
+      "firefly-iii.dejima.men" = traefikProxy // {
+        locations."/" = traefikProxy.locations."/" // {
+          extraConfig = traefikProxy.locations."/".extraConfig + ''
+            # Traefik listens on HTTP port 80, but the public URL uses HTTPS.
+            proxy_set_header X-Forwarded-Port 443;
+          '';
+        };
+      };
 
       # Home Assistant is a direct IoT-network service, not a Kubernetes one.
       "homeassistant.dejima.men" = homeAssistantProxy;
