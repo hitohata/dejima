@@ -36,7 +36,7 @@ DNS endpoint at `192.168.60.1:53` over TCP/UDP. GuestDenpa uses public DNS.
 IAmDempa may access Dejima's Nginx on TCP ports 80/443; Nginx connects to the
 private backends on its behalf. Application services remain available, subject
 to each application's authentication. Administration hosts `dns`, `argocd`,
-`pi-nas`, `netdata`, and `wud` under `dejima.men` allow only trusted LAN
+`pi-nas`, `netdata`, `wud`, and `firefly-iii` under `dejima.men` allow only trusted LAN
 (`192.168.10.0/24`), Tailscale IPv4 peers (`100.64.0.0/10`), and loopback;
 other sources, including IAmDempa, receive HTTP 403 on HTTPS. HTTP redirects to
 HTTPS first. Nginx checks the connection source, not `X-Forwarded-For`.
@@ -160,8 +160,10 @@ The media request portal (Seerr) is proxied through Traefik at
 record must resolve to the gateway. Sonarr, Radarr, and Bazarr remain available
 through their `*.n100.lan` Kubernetes ingress hosts without gateway proxy routes.
 
-Wallos, the subscription tracker, is proxied through Traefik at
-`https://wallos.dejima.men` using the shared wildcard certificate and local DNS.
+Firefly III is proxied through Traefik at `https://firefly-iii.dejima.men`
+using the shared wildcard certificate and local DNS. Access is restricted to
+trusted LAN, Tailscale IPv4 peers, and loopback, including during initial
+administrator setup.
 
 ### Local service DNS
 

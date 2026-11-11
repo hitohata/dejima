@@ -9,6 +9,7 @@ let
     "pi-nas.dejima.men"
     "netdata.dejima.men"
     "wud.dejima.men"
+    "firefly-iii.dejima.men"
   ];
   administrationAccess = ''
     allow 127.0.0.1;
@@ -164,7 +165,7 @@ in
       "netdata.dejima.men" = traefikProxy;
       "navidrome.dejima.men" = traefikProxy;
       "wud.dejima.men" = traefikProxy;
-      "wallos.dejima.men" = traefikProxy;
+      "firefly-iii.dejima.men" = traefikProxy;
 
       # Home Assistant is a direct IoT-network service, not a Kubernetes one.
       "homeassistant.dejima.men" = homeAssistantProxy;
