@@ -4,6 +4,7 @@
   imports = [
     ./hardware-configuration.nix
     ./networking.nix
+    ./daikin-bridge.nix
     ./containers.nix
     ./nginx.nix
     ./sops/default.nix

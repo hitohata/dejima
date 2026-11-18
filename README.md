@@ -229,6 +229,49 @@ and `192.168.50.10`–`192.168.50.254` for IoT. Static infrastructure addresses
 are kept outside those ranges. Native Wi-Fi uses `192.168.60.2`–`192.168.60.254`
 and guest Wi-Fi uses `192.168.100.2`–`192.168.100.254` (253 leases each).
 
+## Dedicated ECHONET Lite bridge
+
+The Raspberry Pi bridge uses static address `192.168.50.3/24` and gateway
+`192.168.50.1`. It is outside the dynamic DHCP pool and needs no DHCP reservation.
+Home Assistant remains at `192.168.50.2`. Keep these values synchronized with
+the companion `daikin_proxy/settings.nix` configuration.
+
+Kea reserves the following addresses using the MAC addresses observed on the LAN:
+
+| Device | MAC address | Reserved IPv4 | Connection to Home Assistant |
+|---|---|---|---|
+| daikin-ac13 | `0c:80:2f:29:8a:10` | `192.168.50.13` | ECHONET Lite bridge |
+| daikin-ac16 | `80:99:9b:6d:d6:d2` | `192.168.50.16` | ECHONET Lite bridge |
+| daikin-ac18 | `f0:3e:05:c6:35:ba` | `192.168.50.18` | Existing Daikin AC integration |
+| daikin-ac19 | `f0:3e:05:c6:43:de` | `192.168.50.19` | Existing Daikin AC integration |
+
+Reservations are inside the IoT dynamic pool, so in-subnet reservation checks are
+explicitly enabled. They take effect on DHCP renewal. Check current leases for
+conflicting assignments before activating changes; reservation hostnames do not
+automatically create AdGuard DNS records.
+
+`hosts/dejima/daikin-bridge.nix` restricts the Pi's routed traffic before the general
+DNAT and NAT forwarding allowances. It permits replies, trusted-LAN SSH, Home
+Assistant's TLS MQTT connection, ECHONET Lite to `.13`/`.16`, and NTP to the two
+servers also allowed by the Pi. Other routed traffic to/from the Pi and new Pi
+connections to gateway services are denied. Other IoT clients retain their existing
+rules. No WAN port forwarding is added.
+
+This is not same-VLAN isolation: Pi-to-HA and other local IoT traffic may bypass
+Dejima. The rules identify the Pi by IP; they are not a security boundary against
+a root compromise that changes its source address. The Pi's own restrictions
+remain necessary. Stronger isolation needs a dedicated access VLAN or port.
+
+After building and applying through the normal gateway deployment workflow, check:
+
+```bash
+sudo systemctl status kea-dhcp4-server nftables
+sudo nft list table inet daikin-bridge-guard
+```
+
+Verify the four DHCP leases, trusted-LAN SSH to `.3`, and Home Assistant's connection
+to `.3:8883`. The bridge must not initiate trusted-LAN or general Internet connections.
+
 ## Updating dependencies
 
 Review and update flake inputs deliberately:

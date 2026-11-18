@@ -75,6 +75,32 @@
           id = 2;
           subnet = "192.168.50.0/24";
           interface = "br-iot";
+          # .2 is Home Assistant; .3 is the statically configured bridge.
+          # Keep the air conditioners at the addresses already configured in HA.
+          reservations-in-subnet = true;
+          reservations-out-of-pool = false;
+          reservations = [
+            {
+              hostname = "daikin-ac13";
+              hw-address = "0c:80:2f:29:8a:10";
+              ip-address = "192.168.50.13";
+            }
+            {
+              hostname = "daikin-ac16";
+              hw-address = "80:99:9b:6d:d6:d2";
+              ip-address = "192.168.50.16";
+            }
+            {
+              hostname = "daikin-ac18";
+              hw-address = "f0:3e:05:c6:35:ba";
+              ip-address = "192.168.50.18";
+            }
+            {
+              hostname = "daikin-ac19";
+              hw-address = "f0:3e:05:c6:43:de";
+              ip-address = "192.168.50.19";
+            }
+          ];
           pools = [{
             pool = "192.168.50.10 - 192.168.50.254";
           }];
